@@ -1,0 +1,738 @@
+{
+  "version": "0.1.0",
+  "name": "deposit_token_to_user_ata",
+  "instructions": [
+    {
+      "name": "initializeTest",
+      "accounts": [],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "accounts": [
+        {
+          "name": "adminState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryAta",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMint",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "createUserDepositAccount",
+      "accounts": [
+        {
+          "name": "userPda",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userAta",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "ATA owned by the PDA - this is crucial for proper ownership"
+          ]
+        },
+        {
+          "name": "subscriptionTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "userId",
+          "type": "string"
+        }
+      ],
+      "returns": {
+        "defined": "CreateAccountResult"
+      }
+    },
+    {
+      "name": "getUserDepositInfo",
+      "accounts": [
+        {
+          "name": "userPda",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": "UserDepositInfo"
+      }
+    },
+    {
+      "name": "findUserPdaAddress",
+      "accounts": [],
+      "args": [
+        {
+          "name": "userId",
+          "type": "string"
+        }
+      ],
+      "returns": "publicKey"
+    },
+    {
+      "name": "depositTokens",
+      "accounts": [
+        {
+          "name": "userPda",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userPdaAta",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User's ATA (owned by PDA)"
+          ]
+        },
+        {
+          "name": "userTokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User's source token account (they own this)"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "userId",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "getAdminInfo",
+      "accounts": [
+        {
+          "name": "adminState",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": "AdminInfo"
+      }
+    },
+    {
+      "name": "updateAdmin",
+      "accounts": [
+        {
+          "name": "adminState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "currentAdmin",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "newAdmin",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "getTreasuryInfo",
+      "accounts": [
+        {
+          "name": "treasuryState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryAta",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": "TreasuryInfo"
+      }
+    },
+    {
+      "name": "adminTransferToTreasury",
+      "accounts": [
+        {
+          "name": "adminState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userPda",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userPdaAta",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryAta",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "userId",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "adminBatchTransferToTreasury",
+      "accounts": [
+        {
+          "name": "adminState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryAta",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "userIds",
+          "type": {
+            "vec": "string"
+          }
+        },
+        {
+          "name": "amounts",
+          "type": {
+            "vec": "u64"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AdminState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokenMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "treasuryAta",
+            "type": "publicKey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserPDA",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "userId",
+            "type": "string"
+          },
+          {
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "CreateAccountResult",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pdaAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "ataAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "userId",
+            "type": "string"
+          },
+          {
+            "name": "success",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AdminInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokenMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "treasuryAta",
+            "type": "publicKey"
+          },
+          {
+            "name": "balance",
+            "type": "u64"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserDepositInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pdaAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "userId",
+            "type": "string"
+          },
+          {
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "ProgramInitialized",
+      "fields": [
+        {
+          "name": "admin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenMint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "treasuryAta",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UserDepositAccountCreated",
+      "fields": [
+        {
+          "name": "userId",
+          "type": "string",
+          "index": false
+        },
+        {
+          "name": "pdaAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenAccount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TokensDeposited",
+      "fields": [
+        {
+          "name": "userId",
+          "type": "string",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "depositor",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "pdaAta",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AdminTransferredToTreasury",
+      "fields": [
+        {
+          "name": "userId",
+          "type": "string",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "admin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "fromAta",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "toTreasury",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "remainingBalance",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AdminUpdated",
+      "fields": [
+        {
+          "name": "oldAdmin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAdmin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "updatedBy",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "EmptyUserId",
+      "msg": "User ID cannot be empty"
+    },
+    {
+      "code": 6001,
+      "name": "UserIdTooLong",
+      "msg": "User ID too long (max 50 characters)"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidAmount",
+      "msg": "Amount must be greater than 0"
+    },
+    {
+      "code": 6003,
+      "name": "UnauthorizedAdmin",
+      "msg": "Unauthorized: Only admin can perform this action"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidPDA",
+      "msg": "Invalid PDA derivation"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidTokenMint",
+      "msg": "Invalid token mint"
+    },
+    {
+      "code": 6006,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidNewAdmin",
+      "msg": "Invalid new admin address"
+    },
+    {
+      "code": 6008,
+      "name": "SameAdminUpdate",
+      "msg": "Cannot set same admin"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidTreasuryATA",
+      "msg": "Invalid treasury ATA"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidAccountList",
+      "msg": "Invalid number of remaining accounts, must be even"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidUserATA",
+      "msg": "User PDA and ATA do not match"
+    },
+    {
+      "code": 6012,
+      "name": "MismatchedArrayLengths",
+      "msg": "Mismatched array lengths for user_ids and amounts"
+    },
+    {
+      "code": 6013,
+      "name": "TooManyUsers",
+      "msg": "Too many users (maximum 5 allowed)"
+    },
+    {
+      "code": 6014,
+      "name": "EmptyUserList",
+      "msg": "User list cannot be empty"
+    },
+    {
+      "code": 6015,
+      "name": "TooManyAccounts",
+      "msg": "Too many accounts provided"
+    },
+    {
+      "code": 6016,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow occurred"
+    }
+  ],
+  "metadata": {
+    "address": "GnDU2Xx4VstvGonpvHv3fEUXWyjMxLCJ2Yd6oDFAg2DS"
+  }
+}
