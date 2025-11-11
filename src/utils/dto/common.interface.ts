@@ -22,3 +22,12 @@ export interface UploadFile {
   filename: string;
   size: number;
 }
+
+export interface IAuthGuardResponse {
+  userId: string;
+  sessionId?: string;
+}
+
+export interface IRefreshTokenDecode extends ITokenCommonFields {
+  token: string;
+}

@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { PickType } from '@nestjs/swagger';
+import { Otp } from '@entities-otp/otp.entities';
 
 export class CommonSearchDto {
   @IsOptional()
@@ -16,3 +18,13 @@ export class CommonSearchDto {
   @IsNumber()
   limit?: number;
 }
+
+export class OtpDto extends PickType(Otp, [
+  'countryCode',
+  'mobileNumber',
+  'otp',
+  'email',
+  'expiry',
+  'otpType',
+  'userId'
+]) {}

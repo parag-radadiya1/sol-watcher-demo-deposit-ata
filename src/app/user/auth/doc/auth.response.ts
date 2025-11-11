@@ -1,0 +1,6 @@
+export const LoginSuccess = {
+  token:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmI1YzE3NmNlN2ZiMjVkMDhhYzM0MWYiLCJpYXQiOjE3MjM2Mzc1NTIsImV4cCI6MTcyMzcyMzk1Mn0.VXDiJUB6ar30gJmmYq1goi5B6TEE1vglXqhWONkkAh8',
+  refreshToken:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmI1YzE3NmNlN2ZiMjVkMDhhYzM0MWYiLCJpYXQiOjE3MjM2Mzc1NTIsImV4cCI6MTcyMzgxMDM1Mn0.1J_SbVbz8riDuxev0iXpI0mf4lLKfpQowcGuRsi00PY',
+};

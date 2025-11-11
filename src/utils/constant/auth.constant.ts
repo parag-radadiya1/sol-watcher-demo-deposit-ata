@@ -7,4 +7,6 @@ export const authResponse = {
   accountVerifySuccessfully: 'account_verify_successfully',
   invalidIp: 'invalid_ip',
   profileGetSuccessfully: 'profile_get_successfully',
+  otpIsAlreadyUserOrExpired: 'otp_is_already_used_or_has_been_expired',
+  userNotFound: 'user_not_found',
 };

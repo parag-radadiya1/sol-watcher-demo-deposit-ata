@@ -12,6 +12,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { LangChainModule } from './langchain/langchain.module';
+import { QueueModule } from './queue/queue.module';
 const configService = new ConfigService();
 
 @Module({
@@ -19,10 +21,12 @@ const configService = new ConfigService();
     EnvConfig,
     DatabaseModule.forRoot(configService.get<string>('DB_URI')),
     ScheduleModule.forRoot(),
+    QueueModule,
     SeedersModule,
     AdminModule,
     UserModule,
     CommonModule,
+    LangChainModule,
   ],
   controllers: [AppController],
   providers: [

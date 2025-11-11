@@ -17,7 +17,13 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "paths": {
+      "@langchain/core/messages": ["node_modules/@langchain/core/dist/messages/index.d.ts"],
+      "@langchain/core/prompts": ["node_modules/@langchain/core/dist/prompts/index.d.ts"],
+      "@langchain/core/output_parsers": ["node_modules/@langchain/core/dist/output_parsers/index.d.ts"],
       "@utils/*": ["src/utils/*"],
       "@db/*": ["src/db/*"],
       "@doc/*": ["src/doc/*"],
@@ -27,7 +33,13 @@
       "@filter/*": ["src/filter/*"],
       "@config/*": ["src/config/*"],
       "@mail/*": ["src/app/mail/*"],
-      "@test/*": ["test/*"]
+      "@app/*": ["src/app/*"],
+      "@test/*": ["test/*"],
+      "@entities-user/*": ["src/entities/user/*"],
+      "@entities-token/*": ["src/entities/token/*"],
+      "@entities-otp/*": ["src/entities/otp/*"],
+      "@entities-job/*": ["src/entities/job/*"],
+      "@user-auth/*": ["src/app/user/auth/*"]
     }
   }
 }

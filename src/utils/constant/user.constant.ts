@@ -1,0 +1,22 @@
+export const userResponse = {
+  userCreatedSuccessfully: 'user_created_successfully',
+  userUpdatedSuccessfully: 'user_updated_successfully',
+  userPermissionUpdatedSuccessfully: 'user_permission_updated_successfully',
+  userNotFound: 'user_not_found',
+  userStatusUpdated: (status: string) => `user_${status}_successfully`,
+  userDeleteSuccessfully: 'user_delete_successfully',
+  userListGetSuccessfully: 'user_list_get_successfully',
+  organizationListGetSuccessfully: 'organization_list_get_successfully',
+  userDetailGetSuccessfully: 'user_detail_get_successfully',
+  userPlanAndPermissionDetailGetSuccessfully:
+    'user_plan_permission_detail_get_successfully',
+  userIsNotActive: 'user_is_not_active_contact_support',
+  emailChangeRequestSentSuccessfully: 'email_change_request_sent_successfully',
+  emailChangedSuccessfully: 'email_changed_successfully',
+  emailVerifiedSuccessfully: 'email_verified_successfully',
+  otpSentSuccessfully: 'otp_sent_successfully',
+  otpVerifiedSuccessfully: 'otp_verified_successfully',
+  duplicateMobileNumberFound: 'duplicate_mobile_number_found',
+  passwordResetOtpSentSuccessfully: 'password_reset_otp_sent_successfully',
+  passwordResetSuccessfully: 'password_reset_successfully',
+};

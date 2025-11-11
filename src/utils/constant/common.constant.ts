@@ -25,6 +25,9 @@ export const commonResponse = {
     'your_organization_is_inactive_please_contact_with_your_organization',
   organizationIsBlockedContactWithSupport:
     'your_organization_is_blocked_please_contact_with_support',
+  invalidMobileNumber: 'mobile_number_invalid',
+  invalidCountryCode: 'country_code_invalid',
+
 };
 
 export const commonSocketResponse = {
@@ -55,4 +58,10 @@ export const historyConstant = {
     `Video uploaded successfully for ${val}`,
   updatedConfigItemSuccessfully: (val: string) =>
     `${val} config items updated successfully`,
+};
+
+export const validationResponse = {
+  enterValidValue: (key: string) => `Enter valid ${key}`,
+  enterValidPassword:
+    'password_must_contain_at_least_one_uppercase_letter_one_lowercase_letter_one_number_and_one_special_character',
 };

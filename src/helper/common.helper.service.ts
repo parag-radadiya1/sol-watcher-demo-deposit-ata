@@ -32,4 +32,26 @@ export class CommonService {
       return '';
     }
   }
+
+  /**
+   * Generates a 6-digit One-Time Password (OTP) as a string.
+   *
+   * @returns {string} A 6-digit OTP, zero-padded if necessary (e.g., "004321").
+   *
+   * @example
+   * const otp = this.generateOTP();
+   * // otp => "123456"
+   *
+   * @description
+   * This function is typically used for authentication flows such as
+   * email or SMS verification, password resets, or any scenario where
+   * a temporary numeric code is required for user validation.
+   */
+  generateOTP(): string {
+    const OTP = Math.ceil(Math.random() * 1000000)
+      .toString()
+      .padStart(6, '0');
+
+    return OTP;
+  }
 }
