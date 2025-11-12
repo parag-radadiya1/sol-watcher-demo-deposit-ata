@@ -26,12 +26,12 @@ export class JobModelService {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ jobs: JobDocument[]; total: number }> {
-    const filter: any = {  };
-    const skip = (options.page - 1) * options.limit;
+  ): Promise<{ jobs: (Job & Record<string, any>)[]; total: number }> {
+    const filter: any = { userId };
+    const page = options?.page || 1;
+    const limit = options?.limit || 20;
+    const skip = (page - 1) * limit;
 
-    console.log('=== skip ====', skip);
-    console.log('=== options ====', options);
     if (options.jobType) {
       filter.jobType = options.jobType;
     }
@@ -44,8 +44,8 @@ export class JobModelService {
       this.jobModel
         .find(filter)
         .sort({ createdAt: -1 })
-        .limit(options.limit || 20)
-        .skip(skip || 0)
+        .limit(limit)
+        .skip(skip)
         .lean()
         .exec(),
       this.jobModel.countDocuments(filter).exec(),
@@ -74,7 +74,7 @@ export class JobModelService {
     return { total, waiting, active, completed, failed, delayed };
   }
 
-  async getLatestJobByType(userId: string, jobType: string): Promise<JobDocument | null> {
+  async getLatestJobByType(userId: string, jobType: string): Promise<(Job & Record<string, any>) | null> {
     return this.jobModel
       .findOne({ userId, jobType })
       .sort({ createdAt: -1 })
@@ -167,4 +167,3 @@ export class JobModelService {
     return result.deletedCount;
   }
 }
-

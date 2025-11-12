@@ -13,6 +13,7 @@ import {
 import { AstrologyServiceException } from '@app/user/astrology/dto';
 import { LangChainService } from '@app/langchain/langchain.service';
 import { AstrologyReadingModelService } from '@app/user/astrology/entities/astrology-reading.service';
+import { Types } from 'mongoose';
 
 @Processor(QUEUE_NAMES.ASTROLOGY_QUEUE)
 @Injectable()
@@ -247,9 +248,26 @@ export class AstrologyProcessor extends WorkerHost {
 
     try {
       // Update job status to active in database
-      await this.jobModelService.updateJobStatus(job.id as string, 'active', {
-        startedAt: new Date(),
-      });
+      // Ensure job record exists (some jobs might be added externally)
+      const existing = await this.jobModelService.getJobByJobId(job.id as string);
+      if (!existing) {
+        // Create a minimal record for this job
+        await this.jobModelService.createJob({
+          jobId: job.id as string,
+          userId: job.data?.userId ? new Types.ObjectId(job.data.userId) : undefined,
+          jobType: job.name as string,
+          jobData: job.data,
+          queueName: QUEUE_NAMES.ASTROLOGY_QUEUE,
+          status: 'active',
+          progress: 0,
+          priority: 0,
+          attempts: 0,
+        });
+      } else {
+        await this.jobModelService.updateJobStatus(job.id as string, 'active', {
+          startedAt: new Date(),
+        });
+      }
 
       let result;
 
@@ -274,6 +292,8 @@ export class AstrologyProcessor extends WorkerHost {
       return result;
     } catch (error) {
       // Mark job as failed in database
+      // Increment attempts and mark failed
+      await this.jobModelService.incrementJobAttempts(job.id as string);
       await this.jobModelService.setJobFailed(
         job.id as string,
         error.message || 'Unknown error',
@@ -397,20 +417,69 @@ export class AstrologyProcessor extends WorkerHost {
   @OnWorkerEvent('active')
   onActive(job: Job) {
     this.logger.log(`Job ${job.id} is now active`);
+    // Ensure DB has an entry for this job (best-effort, non-blocking)
+    (async () => {
+      try {
+        const existing = await this.jobModelService.getJobByJobId(job.id as string);
+        if (!existing) {
+          await this.jobModelService.createJob({
+            jobId: job.id as string,
+            userId: job.data?.userId ? new Types.ObjectId(job.data.userId) : undefined,
+            jobType: job.name as string,
+            jobData: job.data,
+            queueName: QUEUE_NAMES.ASTROLOGY_QUEUE,
+            status: 'active',
+            progress: (job.progress as number) || 0,
+            priority: 0,
+            attempts: 0,
+          });
+        } else {
+          await this.jobModelService.updateJobStatus(job.id as string, 'active', { startedAt: new Date() });
+        }
+      } catch (err) {
+        this.logger.error('Failed to ensure job DB record on active event', err?.message || err);
+      }
+    })();
   }
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
     this.logger.log(`Job ${job.id} has completed`);
+    // Persist completion metadata if not already handled in process
+    (async () => {
+      try {
+        // Attempt to set completed with any return value if available
+        const returnValue = (job as any).returnvalue ?? null;
+        await this.jobModelService.setJobCompleted(job.id as string, returnValue);
+      } catch (err) {
+        this.logger.error('Failed to mark job completed in DB on completed event', err?.message || err);
+      }
+    })();
   }
 
   @OnWorkerEvent('failed')
   onFailed(job: Job, error: Error) {
     this.logger.error(`Job ${job.id} has failed with error: ${error.message}`);
+    (async () => {
+      try {
+        await this.jobModelService.incrementJobAttempts(job.id as string);
+        await this.jobModelService.setJobFailed(job.id as string, error.message || 'Unknown error');
+      } catch (err) {
+        this.logger.error('Failed to record job failure in DB on failed event', err?.message || err);
+      }
+    })();
   }
 
   @OnWorkerEvent('progress')
   onProgress(job: Job, progress: number) {
     this.logger.debug(`Job ${job.id} progress: ${progress}%`);
+    // Best-effort DB update (non-blocking)
+    (async () => {
+      try {
+        await this.jobModelService.updateJobProgress(job.id as string, progress);
+      } catch (err) {
+        this.logger.error('Failed to update job progress in DB on progress event', err?.message || err);
+      }
+    })();
   }
 }

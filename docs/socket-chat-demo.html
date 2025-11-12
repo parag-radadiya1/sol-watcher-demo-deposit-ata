@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket Chat Demo - Test Your Implementation</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 0;
+            height: calc(100vh - 200px);
+            min-height: 500px;
+        }
+
+        .sidebar {
+            background: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .config-section {
+            margin-bottom: 25px;
+        }
+
+        .config-section h3 {
+            font-size: 14px;
+            color: #495057;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-primary:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .message-label {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .message-label.system {
+            background: #e7f3ff;
+            color: #0056b3;
+        }
+
+        .message-label.user {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .message-label.assistant {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .message-label.streaming {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #6c757d;
+        }
+
+        .message-id {
+            font-size: 10px;
+            color: #adb5bd;
+            font-family: monospace;
+        }
+
+        .message-content {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }
+
+        .message.assistant .message-content {
+            border-left-color: #28a745;
+        }
+
+        .message.error .message-content {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+
+        .streaming-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+            margin-left: 5px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .input-area {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-wrapper textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            resize: none;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .input-wrapper textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-wrapper button {
+            padding: 12px 24px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 3px;
+        }
+
+        .event-log {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+        }
+
+        .event-log h4 {
+            font-size: 12px;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .event-item {
+            font-size: 11px;
+            padding: 4px 8px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .event-item.info {
+            background: #e7f3ff;
+            color: #0056b3;
+        }
+
+        .event-item.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .event-item.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Socket Chat Demo</h1>
+            <p>Test your NestJS + Socket.IO + LangChain implementation</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="config-section">
+                    <h3>📡 Connection</h3>
+                    <div id="connectionStatus" class="status disconnected">
+                        ● Disconnected
+                    </div>
+                    <div class="input-group">
+                        <label for="serverUrl">Server URL</label>
+                        <input type="text" id="serverUrl" value="http://localhost:3000" placeholder="http://localhost:3000">
+                    </div>
+                    <div class="input-group">
+                        <label for="authToken">Auth Token (JWT)</label>
+                        <input type="text" id="authToken" placeholder="Bearer YOUR_JWT_TOKEN">
+                    </div>
+                    <button class="btn btn-primary" id="connectBtn" onclick="connect()">Connect</button>
+                    <button class="btn btn-danger" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+                </div>
+
+                <div class="config-section">
+                    <h3>🏠 Room Settings</h3>
+                    <div class="input-group">
+                        <label for="roomName">Room Name</label>
+                        <input type="text" id="roomName" placeholder="conversation:abc123" value="conversation:test123">
+                    </div>
+                    <button class="btn btn-success" id="joinRoomBtn" onclick="joinRoom()" disabled>Join Room</button>
+                </div>
+
+                <div class="config-section">
+                    <h3>💬 Message Settings</h3>
+                    <div class="input-group">
+                        <label for="conversationId">Conversation ID</label>
+                        <input type="text" id="conversationId" placeholder="Optional" value="test123">
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>📊 Statistics</h3>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="messageCount">0</div>
+                            <div class="stat-label">Messages</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="chunkCount">0</div>
+                            <div class="stat-label">Chunks</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="event-log">
+                    <h4>📋 Event Log</h4>
+                    <div id="eventLog"></div>
+                </div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="chat-area">
+                <div class="messages" id="messages">
+                    <div class="message system">
+                        <div class="message-header">
+                            <span class="message-label system">SYSTEM</span>
+                            <span class="message-time" id="welcomeTime"></span>
+                        </div>
+                        <div class="message-content">
+Welcome to Socket Chat Demo! 👋
+
+To get started:
+1. Enter your server URL (default: http://localhost:3000)
+2. Paste your JWT token (get it from your backend login)
+3. Click "Connect"
+4. Optionally join a room
+5. Start chatting!
+
+Events you'll see:
+• aiMessageStart - Stream begins
+• aiMessageChunk - Each AI response chunk
+• aiMessageComplete - Stream finishes
+• aiMessageError - If something goes wrong
+
+Your messages and AI responses will be saved to MongoDB automatically.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <textarea
+                            id="messageInput"
+                            rows="3"
+                            placeholder="Type your message here... (e.g., 'Tell me a joke' or 'Explain quantum computing')"
+                            disabled
+                        ></textarea>
+                        <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()" disabled>
+                            Send 📤
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let socket = null;
+        let isConnected = false;
+        let messageCount = 0;
+        let chunkCount = 0;
+        let currentStreamingMessageId = null;
+        let streamingContent = '';
+
+        // Initialize
+        document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString();
+
+        // Add event listener for Enter key (Ctrl+Enter to send)
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function addEventLog(message, type = 'info') {
+            const eventLog = document.getElementById('eventLog');
+            const eventItem = document.createElement('div');
+            eventItem.className = `event-item ${type}`;
+            eventItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            eventLog.insertBefore(eventItem, eventLog.firstChild);
+
+            // Keep only last 20 events
+            while (eventLog.children.length > 20) {
+                eventLog.removeChild(eventLog.lastChild);
+            }
+        }
+
+        function updateStatus(status) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = `status ${status}`;
+
+            const statusText = {
+                'disconnected': '● Disconnected',
+                'connecting': '⟳ Connecting...',
+                'connected': '✓ Connected'
+            };
+
+            statusEl.textContent = statusText[status] || status;
+        }
+
+        function updateButtonStates() {
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+            document.getElementById('joinRoomBtn').disabled = !isConnected;
+            document.getElementById('sendBtn').disabled = !isConnected;
+            document.getElementById('messageInput').disabled = !isConnected;
+        }
+
+        function addMessage(type, content, metadata = {}) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            let labelClass = type;
+            let labelText = type.toUpperCase();
+
+            if (type === 'assistant' && metadata.isStreaming) {
+                labelClass = 'streaming';
+                labelText = 'AI (STREAMING)';
+            }
+
+            const timeStr = new Date().toLocaleTimeString();
+            const messageIdStr = metadata.messageId ? `<span class="message-id">ID: ${metadata.messageId}</span>` : '';
+
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="message-label ${labelClass}">${labelText}</span>
+                    <span class="message-time">${timeStr}</span>
+                    ${messageIdStr}
+                    ${metadata.isStreaming ? '<span class="streaming-indicator"></span>' : ''}
+                </div>
+                <div class="message-content">${content}</div>
+            `;
+
+            if (metadata.messageId) {
+                messageDiv.id = `msg-${metadata.messageId}`;
+            }
+
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            messageCount++;
+            document.getElementById('messageCount').textContent = messageCount;
+        }
+
+        function updateStreamingMessage(messageId, content) {
+            const messageEl = document.getElementById(`msg-${messageId}`);
+            if (messageEl) {
+                const contentEl = messageEl.querySelector('.message-content');
+                contentEl.textContent = content;
+
+                // Force scroll to bottom on each chunk update
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        }
+
+        function finalizeStreamingMessage(messageId) {
+            const messageEl = document.getElementById(`msg-${messageId}`);
+            if (messageEl) {
+                messageEl.className = 'message assistant';
+                const labelEl = messageEl.querySelector('.message-label');
+                labelEl.textContent = 'ASSISTANT';
+                labelEl.className = 'message-label assistant';
+                const indicator = messageEl.querySelector('.streaming-indicator');
+                if (indicator) indicator.remove();
+
+                // Final scroll to bottom
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const authToken = document.getElementById('authToken').value.trim();
+
+            if (!serverUrl) {
+                alert('Please enter a server URL');
+                return;
+            }
+
+            if (!authToken) {
+                alert('Please enter an auth token (JWT)');
+                return;
+            }
+
+            updateStatus('connecting');
+            addEventLog('Attempting to connect...', 'info');
+
+            try {
+                // Try WebSocket first, fallback to polling if needed
+                socket = io(serverUrl, {
+                    transports: ['websocket', 'polling'],
+                    auth: {
+                        token: authToken
+                    },
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: 5,
+                    timeout: 10000,
+                });
+
+                // Connection events
+                socket.on('connect', () => {
+                    isConnected = true;
+                    updateStatus('connected');
+                    updateButtonStates();
+                    addEventLog(`Connected! Socket ID: ${socket.id}`, 'success');
+                    addEventLog(`Transport: ${socket.io.engine.transport.name}`, 'info');
+                    addMessage('system', `✓ Connected to server\nSocket ID: ${socket.id}\nTransport: ${socket.io.engine.transport.name}`);
+                });
+
+                socket.on('disconnect', (reason) => {
+                    isConnected = false;
+                    updateStatus('disconnected');
+                    updateButtonStates();
+                    addEventLog(`Disconnected: ${reason}`, 'error');
+                    addMessage('system', `✗ Disconnected from server\nReason: ${reason}`);
+                });
+
+                socket.on('connect_error', (error) => {
+                    console.error('Connection error details:', error);
+                    updateStatus('disconnected');
+                    updateButtonStates();
+
+                    let errorMsg = error.message;
+                    if (error.message.includes('websocket error')) {
+                        errorMsg += '\n\nTroubleshooting:\n';
+                        errorMsg += '1. Make sure your server is running (npm run start:dev)\n';
+                        errorMsg += '2. Check if SocketModule is imported in AppModule\n';
+                        errorMsg += '3. Verify IoAdapter is configured in main.ts\n';
+                        errorMsg += '4. Check CORS settings (ALLOW_ORIGIN in .env)\n';
+                        errorMsg += '5. Ensure your JWT token is valid and not expired\n';
+                        errorMsg += '6. Try refreshing your JWT token\n';
+                        errorMsg += '\nThe connection will retry with polling transport...';
+                    }
+
+                    addEventLog(`Connection error: ${error.message}`, 'error');
+                    addMessage('error', `Connection Error:\n${errorMsg}`);
+                });
+
+                // Transport upgrade events for debugging
+                socket.io.engine.on('upgrade', (transport) => {
+                    addEventLog(`Transport upgraded to: ${transport.name}`, 'success');
+                });
+
+                socket.io.engine.on('upgradeError', (error) => {
+                    addEventLog(`Transport upgrade failed: ${error.message}`, 'error');
+                });
+
+                // Room events
+                socket.on('joinedRoom', (data) => {
+                    addEventLog(`Joined room: ${data.roomName}`, 'success');
+                    addMessage('system', `✓ Joined room: ${data.roomName}`);
+                });
+
+                // Chat streaming events
+                socket.on('aiMessageStart', (payload) => {
+                    console.log('aiMessageStart received:', payload);
+                    currentStreamingMessageId = payload.messageId;
+                    streamingContent = '';
+                    addEventLog(`Stream started (${payload.messageId})`, 'info');
+                    addMessage('assistant', '', {
+                        messageId: payload.messageId,
+                        isStreaming: true
+                    });
+                });
+
+                socket.on('aiMessageChunk', (payload) => {
+                    console.log('Chunk received:', payload.chunk);
+                    chunkCount++;
+                    document.getElementById('chunkCount').textContent = chunkCount;
+
+                    streamingContent += payload.chunk;
+                    updateStreamingMessage(payload.messageId, streamingContent);
+
+                    // Log every chunk for debugging
+                    addEventLog(`Chunk #${chunkCount}: ${payload.chunk.substring(0, 20)}...`, 'info');
+                });
+
+                socket.on('aiMessageComplete', (payload) => {
+                    console.log('aiMessageComplete received:', payload);
+                    addEventLog(`Stream completed (${payload.messageId})`, 'success');
+                    finalizeStreamingMessage(payload.messageId);
+                    currentStreamingMessageId = null;
+                    streamingContent = '';
+                });
+
+                socket.on('aiMessageError', (payload) => {
+                    console.error('aiMessageError received:', payload);
+                    addEventLog(`Stream error: ${payload.error}`, 'error');
+                    addMessage('error', `AI Error:\n${payload.error}\nMessage ID: ${payload.messageId}`);
+                    currentStreamingMessageId = null;
+                    streamingContent = '';
+                });
+
+                // Room message event (for generic broadcasts)
+                socket.on('roomMessage', (data) => {
+                    addMessage('system', data.message);
+                });
+
+            } catch (error) {
+                updateStatus('disconnected');
+                addEventLog(`Error: ${error.message}`, 'error');
+                addMessage('error', `Connection Error:\n${error.message}`);
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                isConnected = false;
+                updateStatus('disconnected');
+                updateButtonStates();
+                addEventLog('Manually disconnected', 'info');
+            }
+        }
+
+        function joinRoom() {
+            const roomName = document.getElementById('roomName').value.trim();
+
+            if (!roomName) {
+                alert('Please enter a room name');
+                return;
+            }
+
+            if (!socket || !isConnected) {
+                alert('Please connect first');
+                return;
+            }
+
+            addEventLog(`Joining room: ${roomName}`, 'info');
+            socket.emit('joinRoom', roomName);
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+
+            if (!socket || !isConnected) {
+                alert('Please connect first');
+                return;
+            }
+
+            const roomName = document.getElementById('roomName').value.trim();
+            const conversationId = document.getElementById('conversationId').value.trim();
+
+            const payload = {
+                message: message,
+                roomName: roomName || undefined,
+                conversationId: conversationId || undefined
+            };
+
+            addEventLog(`Sending message...`, 'info');
+            addMessage('user', message);
+
+            socket.emit('chatMessage', payload);
+
+            messageInput.value = '';
+        }
+
+        // Quick test messages
+        function sendTestMessage(msg) {
+            document.getElementById('messageInput').value = msg;
+            sendMessage();
+        }
+
+        // Add some helpful test buttons
+        window.addEventListener('load', () => {
+            const inputArea = document.querySelector('.input-area');
+            const testDiv = document.createElement('div');
+            testDiv.style.marginTop = '10px';
+            testDiv.style.display = 'flex';
+            testDiv.style.gap = '5px';
+            testDiv.style.flexWrap = 'wrap';
+            testDiv.innerHTML = `
+                <button class="btn" style="padding: 5px 10px; width: auto; font-size: 11px;" onclick="sendTestMessage('Tell me a short joke')">🎭 Joke</button>
+                <button class="btn" style="padding: 5px 10px; width: auto; font-size: 11px;" onclick="sendTestMessage('What is Node.js in one sentence?')">💻 Tech Q</button>
+                <button class="btn" style="padding: 5px 10px; width: auto; font-size: 11px;" onclick="sendTestMessage('Count from 1 to 10')">🔢 Count</button>
+                <button class="btn" style="padding: 5px 10px; width: auto; font-size: 11px;" onclick="document.getElementById('messages').innerHTML = ''; messageCount = 0; chunkCount = 0; document.getElementById('messageCount').textContent = 0; document.getElementById('chunkCount').textContent = 0;">🗑️ Clear</button>
+            `;
+            inputArea.appendChild(testDiv);
+        });
+    </script>
+</body>
+</html>

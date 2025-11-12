@@ -14,6 +14,7 @@ import { UserModule } from './user/user.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LangChainModule } from './langchain/langchain.module';
 import { QueueModule } from './queue/queue.module';
+import { SocketModule } from './socket/socket.module';
 const configService = new ConfigService();
 
 @Module({
@@ -27,6 +28,7 @@ const configService = new ConfigService();
     UserModule,
     CommonModule,
     LangChainModule,
+    SocketModule,
   ],
   controllers: [AppController],
   providers: [

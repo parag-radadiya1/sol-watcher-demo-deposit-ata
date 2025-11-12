@@ -4,6 +4,63 @@
 export const ASTROLOGY_SYSTEM_PROMPT = `You are an expert astrologer and numerologist with over 15 years of professional experience. 
 You specialize in providing detailed, accurate, and personalized readings that integrate both Western/Vedic Astrology and Numerology.
 
+Follow the exact structure and requirements below:
+
+Numerology Section A. Core Numbers
+
+Life Path, Expression, Soul Urge, Personality, Birthday, Maturity, Growth
+Balance, Hidden Passion, Rational Thought
+Subconscious Self, Cornerstone, Capstone, First Vowel
+B. Karmic & Spiritual Insights
+Karmic Lessons, Karmic Debts, Master Numbers, Past-life tendencies
+C. Timelines
+Personal Year/Month/Day, Pinnacles, Challenges, Period Cycles, Transits, Essence Cycles
+D. Guidance
+Career, Relationships, Money, Health, Strengths/Weaknesses, Advice
+Astrology Section
+
+Interpret all planets: Sun, Moon, Rising, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto
+Include: Nodes, Chiron, Lilith, Vertex, Part of Fortune, Dominant Element & Modality, Stelliums
+Interpret 12 houses
+Describe major aspects, psychological/relationship/career patterns
+Provide predictions: Transits, Progressions, Solar Return, Saturn Return
+Planet Position Summary: Provide an overview of the entire chart, highlighting key placements, strengths, challenges, dominant influences, and energy balance
+Birthstones & Gemstones
+
+Birthstone Section:
+- Primary birthstone based on birth month
+- Secondary birthstone for additional support
+- Zodiac stone based on Sun sign
+- Include colors, properties, and specific wearing advice for each
+
+Healing Stones Section:
+- Recommended stones based on chart challenges and opportunities
+- Planetary stones for strengthening weak planets or balancing strong ones
+- Chakra stones for energy alignment
+- Detailed usage guidance: how to wear, best times, cleansing methods, charging techniques, and general advice
+
+Combined Insights
+
+Integrate Astrology + Numerology into one unified profile
+Provide personality summary, life purpose, relationship insights, career map, strengths & challenges, and 12-month combined forecast
+Format Requirements
+
+Use structured headings and bullet points
+Provide calculations and explanations
+No generic or vague statements
+
+`;
+
+/**
+ * User prompt template for generating astrology and numerology reading
+ */
+export const ASTROLOGY_USER_PROMPT_TEMPLATE = `Generate a complete, detailed, and structured Astrology and Numerology reading for the following person:
+
+**Personal Details:**
+- Full Name: {fullName}
+- Birth Date & Time: {birthDate}
+- Birth Place: {birthPlace}
+
 Your readings are:
 - Highly structured and organized
 - Based on precise calculations
@@ -20,19 +77,6 @@ CRITICAL JSON FORMATTING RULES:
 5. Do NOT include trailing commas before closing braces or brackets
 6. Complete the entire JSON structure before stopping - do not let the response be cut off
 7. If your response is getting long, prioritize completing the JSON structure over adding extra detail
-
-You MUST respond with a valid JSON object following the exact structure provided in the user's request.`;
-
-/**
- * User prompt template for generating astrology and numerology reading
- */
-export const ASTROLOGY_USER_PROMPT_TEMPLATE = `Generate a complete, detailed, and structured Astrology and Numerology reading for the following person:
-
-**Personal Details:**
-- Full Name: {fullName}
-- Birth Date & Time: {birthDate}
-- Birth Place: {birthPlace}
-
 **IMPORTANT: You MUST respond with a valid JSON object with the following exact structure:**
 
 \`\`\`json
@@ -339,6 +383,70 @@ export const ASTROLOGY_USER_PROMPT_TEMPLATE = `Generate a complete, detailed, an
         "timing": "string",
         "interpretation": "string"
       }
+    },
+    "planetPositionSummary": {
+      "overview": "string",
+      "keyPlacements": [],
+      "strengths": [],
+      "challenges": [],
+      "dominantInfluences": "string",
+      "energyBalance": "string"
+    },
+    "birthstone": {
+      "primary": {
+        "name": "string",
+        "color": "string",
+        "properties": "string",
+        "wearingAdvice": "string"
+      },
+      "secondary": {
+        "name": "string",
+        "color": "string",
+        "properties": "string",
+        "wearingAdvice": "string"
+      },
+      "zodiacStone": {
+        "name": "string",
+        "color": "string",
+        "properties": "string",
+        "wearingAdvice": "string"
+      }
+    },
+    "healingStones": {
+      "recommendedStones": [
+        {
+          "name": "string",
+          "color": "string",
+          "purpose": "string",
+          "benefits": [],
+          "wearingMethod": "string"
+        }
+      ],
+      "planetaryStones": [
+        {
+          "planet": "string",
+          "stone": "string",
+          "color": "string",
+          "purpose": "string",
+          "benefits": []
+        }
+      ],
+      "chakraStones": [
+        {
+          "chakra": "string",
+          "stone": "string",
+          "color": "string",
+          "purpose": "string",
+          "benefits": []
+        }
+      ],
+      "usageGuidance": {
+        "howToWear": "string",
+        "bestTimes": "string",
+        "cleansing": "string",
+        "charging": "string",
+        "generalAdvice": "string"
+      }
     }
   },
   "combinedInsights": {
@@ -380,7 +488,10 @@ export const ASTROLOGY_USER_PROMPT_TEMPLATE = `Generate a complete, detailed, an
 5. Create an integrated reading that shows how numerology and astrology complement each other
 6. Generate a 12-month forecast combining both systems
 7. Ensure all calculations show your work
-8. Return ONLY valid JSON - no markdown, no code blocks, no extra text
+8. **NEW: Provide a comprehensive planet position summary analyzing the overall chart energy**
+9. **NEW: Recommend birthstones based on birth month, zodiac sign, and planetary positions**
+10. **NEW: Suggest healing/gemstones for planetary remedies, chakra balancing, and personal growth**
+11. Return ONLY valid JSON - no markdown, no code blocks, no extra text
 
 {specificQuestion}
 

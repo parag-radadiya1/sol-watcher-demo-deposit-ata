@@ -14,6 +14,8 @@ export const PAGINATION_CONFIG = {
   limit: 0,
 };
 
+export const BODY_SIZE_LIMIT = 1024 * 1024 * 200; // 200 MB
+
 export const supportedCountries: { [code: string]: RegExp } = {
   '+1': /^[2-9]\d{2}[2-9]\d{2}\d{4}$/, // US/Canada
   '+91': /^[6-9]\d{9}$/, // India

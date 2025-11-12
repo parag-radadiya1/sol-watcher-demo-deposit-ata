@@ -162,4 +162,34 @@ export class QueueService {
 
     return { waiting, active, completed, failed };
   }
+
+  // Expose queue instance for admin integrations (e.g., Bull Board)
+  getAstrologyQueue() {
+    return this.astrologyQueue;
+  }
+
+  /**
+   * Cancel an existing job by jobId
+   * Removes it from the queue and marks as failed in database
+   */
+  async cancelJob(jobId: string, reason: string = 'Cancelled by user') {
+    try {
+      const job = await this.astrologyQueue.getJob(jobId);
+
+      if (job) {
+        // Remove the job from the queue
+        await job.remove();
+
+        // Mark as failed in database
+        await this.jobModelService.setJobFailed(jobId, reason);
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error(`Failed to cancel job ${jobId}:`, error);
+      return false;
+    }
+  }
 }

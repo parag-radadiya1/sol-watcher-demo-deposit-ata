@@ -16,14 +16,18 @@ import {
 } from './constants/astrology-prompt.constant';
 import { IAstrologyNumerologyReading } from './interfaces/astrology-reading.interface';
 import { QueueService } from '@app/queue/queue.service';
+import { JobModelService } from '@entities-job/job.service';
+import { JOB_TYPES } from '@app/queue/constants/queue.constants';
 
 @Injectable()
 export class AstrologyService {
   constructor(
     private readonly userModelService: UserModelService,
     private readonly langChainService: LangChainService,
+    // todo : update this service from model to service
     private readonly astrologyReadingModelService: AstrologyReadingModelService,
     private readonly queueService: QueueService,
+    private readonly jobModelService: JobModelService,
   ) {}
 
   /**
@@ -65,7 +69,6 @@ export class AstrologyService {
         timeZoneName: 'short'
       });
 
-      console.log('=== value ====', value);
       // Check if we have a cached reading (unless force regenerate is requested)
       if (!value?.forceRegenerate) {
         const cachedReading = await this.astrologyReadingModelService.findByUserAndBirthDetails(
@@ -92,31 +95,54 @@ export class AstrologyService {
         }
       }
 
-      // Add job to queue for async processing with rate limiting
-      const job = await this.queueService.addAstrologyJob({
-        userId: req.userId,
-        fullName,
-        birthDate: user.birthDate,
-        birthPlace: user.birthPlace,
-        question: value?.question || "",
-        forceRegenerate: value?.forceRegenerate,
-      });
+      // Check for existing jobs for this user
+      const existingJob = await this.jobModelService.getLatestJobByType(
+        req.userId,
+        JOB_TYPES.ASTROLOGY_READING,
+      );
 
-      // Return job information - client can poll for status
+      // If there's an active or waiting job, cancel it and queue a new one
+      if (existingJob && ['waiting', 'active'].includes(existingJob.status)) {
+        // Cancel the existing job
+        await this.queueService.cancelJob(
+          existingJob.jobId,
+          'Cancelled - user requested new reading'
+        );
+        console.log(`Cancelled existing job ${existingJob.jobId} for user ${req.userId}`);
+      }
+
+      const reading = await this.generateAstrologyReading(
+        fullName,
+        birthDateFormatted,
+        user.birthPlace,
+        value.question,
+      );
+
+      // Store the reading in database
+      const savedReading = await this.astrologyReadingModelService.createReading(
+        req.userId,
+        fullName,
+        user.birthDate,
+        user.birthPlace,
+        reading,
+      );
+
+      // Return formatted response
       return {
-        statusCode: HttpStatus.ACCEPTED,
-        message: 'Astrology reading generation has been queued. This will be processed with rate limiting to ensure quality.',
+        statusCode: HttpStatus.OK,
+        message: 'Astrology reading generated successfully',
         data: {
-          jobId: job.id,
-          status: 'queued',
+          reading: savedReading.reading,
           userDetails: {
             fullName,
             birthDate: birthDateFormatted,
             birthPlace: user.birthPlace,
           },
-          estimatedTime: '30-60 seconds',
-        } as any,
+          cached: false,
+          generatedAt: savedReading.generatedAt,
+        },
       };
+
     } catch (error) {
       // Re-throw custom exceptions
       if (error instanceof IncompleteBirthDetailsException) {

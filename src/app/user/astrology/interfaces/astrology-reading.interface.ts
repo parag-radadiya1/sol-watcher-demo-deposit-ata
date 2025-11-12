@@ -145,6 +145,9 @@ export interface IAstrologyReading {
   aspects: IAspect[];
   patterns: IPatterns;
   predictions: IPredictions;
+  planetPositionSummary: IPlanetPositionSummary;
+  birthstone: IBirthstone;
+  healingStones: IHealingStones;
 }
 
 export interface IPlanets {
@@ -248,6 +251,75 @@ export interface ITransit {
   transit: string;
   timing: string;
   interpretation: string;
+}
+
+// ============= PLANET POSITION SUMMARY & STONES INTERFACES =============
+
+export interface IPlanetPositionSummary {
+  overview: string;
+  keyPlacements: string[];
+  strengths: string[];
+  challenges: string[];
+  dominantInfluences: string;
+  energyBalance: string;
+}
+
+export interface IBirthstone {
+  primary: {
+    name: string;
+    color: string;
+    properties: string;
+    wearingAdvice: string;
+  };
+  secondary: {
+    name: string;
+    color: string;
+    properties: string;
+    wearingAdvice: string;
+  };
+  zodiacStone: {
+    name: string;
+    color: string;
+    properties: string;
+    wearingAdvice: string;
+  };
+}
+
+export interface IHealingStones {
+  recommendedStones: IStone[];
+  planetaryStones: IPlanetaryStone[];
+  chakraStones: IChakraStone[];
+  usageGuidance: {
+    howToWear: string;
+    bestTimes: string;
+    cleansing: string;
+    charging: string;
+    generalAdvice: string;
+  };
+}
+
+export interface IStone {
+  name: string;
+  color: string;
+  purpose: string;
+  benefits: string[];
+  wearingMethod: string;
+}
+
+export interface IPlanetaryStone {
+  planet: string;
+  stone: string;
+  color: string;
+  purpose: string;
+  benefits: string[];
+}
+
+export interface IChakraStone {
+  chakra: string;
+  stone: string;
+  color: string;
+  purpose: string;
+  benefits: string[];
 }
 
 // ============= COMBINED INSIGHTS INTERFACES =============

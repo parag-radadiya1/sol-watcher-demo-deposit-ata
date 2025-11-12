@@ -13,6 +13,7 @@ import {
 @Injectable()
 export class LangChainService {
   private chatModel: ChatOpenAI;
+  private streamingSupported: boolean | null = null; // Track if streaming is supported
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
@@ -166,6 +167,81 @@ export class LangChainService {
   }
 
   /**
+   * @description Stream chat with conversation history (for context-aware responses)
+   * History is used for context only - we only stream the response to the new message
+   * @param {Array<{role: string, content: string}>} messages - Complete array of messages including system, history, and new user message
+   * @returns {AsyncIterable<string>} Stream of AI response chunks
+   */
+  async *streamChatWithHistory(
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  ): AsyncIterable<string> {
+    // Build message array from the complete message stack
+    const buildMessages = () => {
+      return messages.map((msg) => {
+        switch (msg.role) {
+          case 'system':
+            return new SystemMessage(msg.content);
+          case 'user':
+            return new HumanMessage(msg.content);
+          case 'assistant':
+            return new AIMessage(msg.content);
+          default:
+            return new HumanMessage(msg.content);
+        }
+      });
+    };
+
+    // If we already know streaming isn't supported, skip directly to non-streaming
+    if (this.streamingSupported === false) {
+      const langchainMessages = buildMessages();
+      const response = await this.chatModel.invoke(langchainMessages);
+      yield response.content.toString();
+      return;
+    }
+
+    try {
+      const langchainMessages = buildMessages();
+
+      // Try to stream the response (history is just context, not streamed)
+      const stream = await this.chatModel.stream(langchainMessages);
+      for await (const chunk of stream) {
+        const content = chunk.content;
+        if (content) {
+          yield content.toString();
+        }
+      }
+
+      // If we get here, streaming is supported
+      if (this.streamingSupported === null) {
+        this.streamingSupported = true;
+        console.log('Streaming is supported and working');
+      }
+    } catch (error: any) {
+      // If streaming is not supported (organization not verified), fallback to non-streaming
+      if (error?.code === 'unsupported_value' && error?.param === 'stream') {
+        // Remember that streaming isn't supported to avoid future attempts
+        if (this.streamingSupported === null) {
+          this.streamingSupported = false;
+          console.warn('Streaming not supported by OpenAI organization. Using non-streaming mode for all future requests.');
+          console.warn('To enable streaming, verify your organization at: https://platform.openai.com/settings/organization/general');
+        }
+
+        const langchainMessages = buildMessages();
+
+        // Get the full response without streaming
+        const response = await this.chatModel.invoke(langchainMessages);
+        const fullContent = response.content.toString();
+
+        // Yield the full response at once (simulating streaming)
+        yield fullContent;
+      } else {
+        console.error('LangChain stream chat with history error:', error);
+        throw new Error('Failed to stream AI response with history');
+      }
+    }
+  }
+
+  /**
    * @description Agentic call - AI decides and executes actions
    * @param {string} task - Task description
    * @param {Array<{name: string, description: string, function: Function}>} tools - Available tools for the agent
@@ -206,6 +282,42 @@ Analyze the task and provide a detailed response or suggest which tool to use.`;
     } catch (error) {
       console.error('LangChain embeddings error:', error);
       throw new Error('Failed to get embeddings');
+    }
+  }
+
+  /**
+   * @description Summarize a conversation using a custom LLM-based approach
+   * @param {Array<{role: string, content: string}>} messages - Array of messages to summarize
+   * @returns {Promise<string>} Concise summary of the conversation
+   */
+  async summarizeConversation(
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ): Promise<string> {
+    try {
+      if (messages.length === 0) return '';
+
+      // Build a conversation transcript
+      const conversationText = messages
+        .map((msg) => {
+          const speaker = msg.role === 'user' ? 'User' : 'Assistant';
+          return `${speaker}: ${msg.content}`;
+        })
+        .join('\n\n');
+
+      // Use the LLM to create an intelligent summary
+      const summaryPrompt = `Please provide a concise summary of the following conversation. Focus on the main topics discussed, key questions asked, and important information shared. Keep it brief but informative (2-3 sentences max).
+
+Conversation:
+${conversationText}
+
+Summary:`;
+
+      const summary = await this.chatModel.invoke([new HumanMessage(summaryPrompt)]);
+      return summary.content.toString().trim();
+    } catch (error) {
+      console.error('LangChain summarize conversation error:', error);
+      // Fallback to simple summary
+      return `Previous conversation covered ${messages.length} messages.`;
     }
   }
 }
