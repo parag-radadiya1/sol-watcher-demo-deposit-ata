@@ -81,4 +81,22 @@ export class UserModelService {
       isActive: true,
     });
   }
+
+  // Update user's last astrology job ID
+  updateLastAstrologyJobId(userId: string, jobId: string): Promise<User | null> {
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      { lastAstrologyJobId: jobId },
+      { new: true },
+    );
+  }
+
+  // Update user's last birthstone job ID
+  updateLastBirthstoneJobId(userId: string, jobId: string): Promise<User | null> {
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      { lastBirthstoneJobId: jobId },
+      { new: true },
+    );
+  }
 }

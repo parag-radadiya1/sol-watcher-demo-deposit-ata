@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards, HttpCode, HttpStatus, Post, Param } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,6 +6,9 @@ import {
   ApiBearerAuth,
   ApiBadRequestResponse,
   ApiInternalServerErrorResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { JobService } from './job.service';
 import { AuthGuard } from '@guard/auth.guard';
@@ -91,5 +94,54 @@ export class JobController {
     @Query('jobType') jobType: string,
   ): Promise<ICommonResponse<JobResponseDto>> {
     return this.jobService.getLatestJob(req, jobType);
+  }
+
+  @Get('my-latest-astrology-job')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get user\'s latest astrology job from their profile',
+    description: 'Retrieves the latest astrology job stored in user profile (lastAstrologyJobId field)'
+  })
+  @ApiOkResponse({
+    description: 'Latest astrology job retrieved successfully',
+    type: GetJobStatusSuccessResponse,
+  })
+  @ApiNotFoundResponse({
+    description: 'No astrology job found for this user',
+  })
+  async getMyLatestAstrologyJob(
+    @Req() req: IAuthGuardResponse,
+  ): Promise<ICommonResponse<JobResponseDto>> {
+    return this.jobService.getMyLatestAstrologyJob(req);
+  }
+
+  @Post('retry/:jobId')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Retry/recall a failed job',
+    description: 'Re-queues a failed job with the same data. Only failed jobs can be retried.'
+  })
+  @ApiCreatedResponse({
+    description: 'Job retry initiated successfully',
+    type: GetJobStatusSuccessResponse,
+  })
+  @ApiNotFoundResponse({
+    description: 'Job not found',
+  })
+  @ApiForbiddenResponse({
+    description: 'Unauthorized to retry this job',
+  })
+  @ApiBadRequestResponse({
+    description: 'Only failed jobs can be retried',
+  })
+  async retryJob(
+    @Req() req: IAuthGuardResponse,
+    @Param('jobId') jobId: string,
+  ): Promise<ICommonResponse<JobResponseDto>> {
+    return this.jobService.retryJob(req, jobId);
   }
 }

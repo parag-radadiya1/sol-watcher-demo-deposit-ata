@@ -1,0 +1,124 @@
+{
+  "data": {
+    "matchSummary": {
+      "maleNakshatra": "Chitra",
+      "femaleNakshatra": "Ardra",
+      "matchPercentage": 75,
+      "matchPoints": {
+        "received": 27,
+        "total": 36
+      }
+    },
+    "basicDetails": {
+      "boy": {
+        "name": "Aarav Sharma",
+        "birthDate": "2000-05-15",
+        "birthTime": "15:45",
+        "birthPlace": "Jaipur, Rajasthan, India",
+        "janmaRashi": "Virgo",
+        "nakshatra": "Chitra",
+        "mangalDosha": "HIGHLY_EFFECTIVE"
+      },
+      "girl": {
+        "name": "Riya Patel",
+        "birthDate": "2001-10-09",
+        "birthTime": "06:10",
+        "birthPlace": "Ahmedabad, Gujarat, India",
+        "janmaRashi": "Gemini",
+        "nakshatra": "Ardra",
+        "mangalDosha": "EFFECTIVE"
+      }
+    },
+
+    "ashtakootPoints": {
+      "totalMale": 36,
+      "totalReceived": 27,
+      "attributes": [
+        {
+          "attribute": "Varna",
+          "description": "Natural Refinement / Work",
+          "male": 6,
+          "female": 3,
+          "max": 1,
+          "received": 1
+        },
+        {
+          "attribute": "Vashya",
+          "description": "Innate Giving / Attraction towards each other",
+          "male": 2,
+          "female": 2,
+          "max": 2,
+          "received": 2
+        },
+        {
+          "attribute": "Tara",
+          "description": "Comfort - Prosperity - Health",
+          "male": 2,
+          "female": 9,
+          "max": 3,
+          "received": 3
+        },
+        {
+          "attribute": "Yoni",
+          "description": "Intimate Physical",
+          "male": 10,
+          "female": 5,
+          "max": 4,
+          "received": 1
+        },
+        {
+          "attribute": "Maitri",
+          "description": "Friendship",
+          "male": 4,
+          "female": 4,
+          "max": 5,
+          "received": 5
+        },
+        {
+          "attribute": "Gan",
+          "description": "Temperament",
+          "male": 3,
+          "female": 2,
+          "max": 6,
+          "received": 0
+        },
+        {
+          "attribute": "Bhakut",
+          "description": "Constructive Ability / Society & Couple",
+          "male": 6,
+          "female": 3,
+          "max": 7,
+          "received": 7
+        },
+        {
+          "attribute": "Nadi",
+          "description": "Progeny / Excess",
+          "male": 3,
+          "female": 2,
+          "max": 8,
+          "received": 8
+        }
+      ]
+    },
+
+    "matchingReport": {
+      "ashtakoot": {
+        "score": 27,
+        "total": 36
+      },
+      "maleManglik": "41.5%",
+      "femaleManglik": "25%",
+      "rujaDosha": false,
+      "vedhaDosha": false
+    },
+
+    "mangalDoshaReport": {
+      "boyHasMangal": true,
+      "girlHasMangal": true,
+      "doshaCancelled": true,
+      "summary": "Both partners have Mangal Dosha, which cancels out and does not negatively affect the match. (MD Format)"
+    },
+
+    "conclusion": "Ashtakoota score is moderate, but supporting factors show positive indications. (MD Format)"
+  }
+}

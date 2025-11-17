@@ -6,18 +6,19 @@ import {
   CheckAstrologyDto,
   IAstrologyResponse,
   IncompleteBirthDetailsException,
-  AstrologyServiceException
+  AstrologyServiceException,
 } from './dto';
 import { AstrologyReadingModelService } from './entities/astrology-reading.service';
 import {
   ASTROLOGY_SYSTEM_PROMPT,
   ASTROLOGY_USER_PROMPT_TEMPLATE,
-  SPECIFIC_QUESTION_TEMPLATE
+  SPECIFIC_QUESTION_TEMPLATE,
 } from './constants/astrology-prompt.constant';
 import { IAstrologyNumerologyReading } from './interfaces/astrology-reading.interface';
 import { QueueService } from '@app/queue/queue.service';
 import { JobModelService } from '@entities-job/job.service';
 import { JOB_TYPES } from '@app/queue/constants/queue.constants';
+import { ToonParser } from './utils/toon-parser.util';
 
 @Injectable()
 export class AstrologyService {
@@ -60,22 +61,26 @@ export class AstrologyService {
         ? `${user.firstName} ${user.lastName} ${user.surname}`.trim()
         : `${user.firstName} ${user.lastName}`.trim();
 
-      const birthDateFormatted = new Date(user.birthDate).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short'
-      });
+      const birthDateFormatted = new Date(user.birthDate).toLocaleString(
+        'en-US',
+        {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short',
+        },
+      );
 
       // Check if we have a cached reading (unless force regenerate is requested)
       if (!value?.forceRegenerate) {
-        const cachedReading = await this.astrologyReadingModelService.findByUserAndBirthDetails(
-          req.userId,
-          user.birthDate,
-          user.birthPlace,
-        );
+        const cachedReading =
+          await this.astrologyReadingModelService.findByUserAndBirthDetails(
+            req.userId,
+            user.birthDate,
+            user.birthPlace,
+          );
 
         if (cachedReading) {
           return {
@@ -106,43 +111,50 @@ export class AstrologyService {
         // Cancel the existing job
         await this.queueService.cancelJob(
           existingJob.jobId,
-          'Cancelled - user requested new reading'
+          'Cancelled - user requested new reading',
         );
-        console.log(`Cancelled existing job ${existingJob.jobId} for user ${req.userId}`);
+        console.log(
+          `Cancelled existing job ${existingJob.jobId} for user ${req.userId}`,
+        );
       }
 
-      const reading = await this.generateAstrologyReading(
+      // Queue the astrology job instead of generating synchronously
+      const job = await this.queueService.addAstrologyJob({
+        userId: req.userId,
         fullName,
-        birthDateFormatted,
-        user.birthPlace,
-        value.question,
-      );
+        birthDate: user.birthDate,
+        birthPlace: user.birthPlace,
+        question: value.question,
+        forceRegenerate: value.forceRegenerate,
+      });
 
-      // Store the reading in database
-      const savedReading = await this.astrologyReadingModelService.createReading(
+      // Store the job ID in the user model
+      await this.userModelService.updateLastAstrologyJobId(
         req.userId,
-        fullName,
-        user.birthDate,
-        user.birthPlace,
-        reading,
+        job.id as string,
       );
 
-      // Return formatted response
+      console.log(
+        `Astrology job queued for user: ${req.userId}, jobId: ${job.id}`,
+      );
+
+      // Return job status response
       return {
-        statusCode: HttpStatus.OK,
-        message: 'Astrology reading generated successfully',
+        statusCode: HttpStatus.ACCEPTED,
+        message:
+          'Astrology reading job queued successfully. Use the jobId to check status.',
         data: {
-          reading: savedReading.reading,
+          jobId: job.id,
+          status: 'waiting',
+          message:
+            'Your astrology reading is being generated. Please check the job status using the provided jobId.',
           userDetails: {
             fullName,
             birthDate: birthDateFormatted,
             birthPlace: user.birthPlace,
           },
-          cached: false,
-          generatedAt: savedReading.generatedAt,
-        },
+        } as any,
       };
-
     } catch (error) {
       // Re-throw custom exceptions
       if (error instanceof IncompleteBirthDetailsException) {
@@ -152,7 +164,7 @@ export class AstrologyService {
       // Log and throw generic astrology service error
       console.error('Astrology service error:', error);
       throw new AstrologyServiceException(
-        error?.message || 'Failed to generate astrology reading'
+        error?.message || 'Failed to generate astrology reading',
       );
     }
   }
@@ -210,18 +222,6 @@ export class AstrologyService {
           },
         };
       }
-
-      // Return job status for pending jobs
-      return {
-        statusCode: HttpStatus.OK,
-        message: `Job is ${jobStatus.state}`,
-        data: {
-          jobId: jobStatus.id,
-          status: jobStatus.state,
-          progress: jobStatus.progress,
-          failedReason: jobStatus.failedReason,
-        },
-      };
     } catch (error) {
       console.error('Error getting job status:', error);
       throw new AstrologyServiceException('Failed to get job status');
@@ -245,8 +245,10 @@ export class AstrologyService {
         : '';
 
       // Build the complete user prompt
-      const userPrompt = ASTROLOGY_USER_PROMPT_TEMPLATE
-        .replace('{fullName}', fullName)
+      const userPrompt = ASTROLOGY_USER_PROMPT_TEMPLATE.replace(
+        '{fullName}',
+        fullName,
+      )
         .replace('{birthDate}', birthDate)
         .replace('{birthPlace}', birthPlace)
         .replace('{specificQuestion}', specificQuestion);
@@ -263,27 +265,34 @@ export class AstrologyService {
           userPrompt,
         ),
         new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('AI request timeout after 180 seconds')), 180000)
-        )
+          setTimeout(
+            () => reject(new Error('AI request timeout after 180 seconds')),
+            180000,
+          ),
+        ),
       ]);
 
       const endTime = Date.now();
-      console.log(`=== AI response received in ${(endTime - startTime) / 1000}s ===`);
+      console.log(
+        `=== AI response received in ${(endTime - startTime) / 1000}s ===`,
+      );
       console.log('Response length:', aiResponse.length, 'characters');
       console.log('Response preview:', aiResponse.substring(0, 200));
 
       // Check if response is empty or too short
       if (!aiResponse || aiResponse.trim().length === 0) {
-        console.error('Empty AI response received - model may have hit token limits');
+        console.error(
+          'Empty AI response received - model may have hit token limits',
+        );
         throw new AstrologyServiceException(
-          'The AI model did not generate any content. This usually happens when the model hits token limits. Please try again, or contact support if the issue persists.'
+          'The AI model did not generate any content. This usually happens when the model hits token limits. Please try again, or contact support if the issue persists.',
         );
       }
 
       if (aiResponse.length < 100) {
         console.warn('AI response is suspiciously short:', aiResponse);
         throw new AstrologyServiceException(
-          'The AI model generated an incomplete response. Please try again.'
+          'The AI model generated an incomplete response. Please try again.',
         );
       }
 
@@ -295,19 +304,19 @@ export class AstrologyService {
       // Better error messages
       if (error.message?.includes('timeout')) {
         throw new AstrologyServiceException(
-          'AI request timed out. The astrology reading is taking too long to generate. Please try again or simplify your request.'
+          'AI request timed out. The astrology reading is taking too long to generate. Please try again or simplify your request.',
         );
       }
 
       if (error.message?.includes('rate limit')) {
         throw new AstrologyServiceException(
-          'API rate limit exceeded. Please wait a moment and try again.'
+          'API rate limit exceeded. Please wait a moment and try again.',
         );
       }
 
       if (error.message?.includes('token')) {
         throw new AstrologyServiceException(
-          'The request is too large for the AI model. Please try with a shorter question.'
+          'The request is too large for the AI model. Please try with a shorter question.',
         );
       }
 
@@ -317,128 +326,62 @@ export class AstrologyService {
       }
 
       throw new AstrologyServiceException(
-        error?.message || 'Failed to generate astrology reading from AI'
+        error?.message || 'Failed to generate astrology reading from AI',
       );
     }
   }
 
   /**
-   * @description Parse and validate AI response as JSON
+   * @description Parse and validate AI response in TOON format
    * @private
    */
   private parseAIResponse(response: string): IAstrologyNumerologyReading {
     try {
-      // Remove markdown code blocks if present
-      let cleanedResponse = response.trim();
+      // Clean the TOON response (remove markdown code blocks)
+      const cleanedResponse = ToonParser.cleanToonResponse(response);
 
-      // Remove ```json or ``` markers
-      cleanedResponse = cleanedResponse.replace(/^```json?\s*/i, '');
-      cleanedResponse = cleanedResponse.replace(/```\s*$/, '');
-
-      // Try to extract JSON if it's embedded in text
-      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanedResponse = jsonMatch[0];
-      }
-
-      console.log('=== Attempting to parse JSON ===');
+      console.log('=== Attempting to parse TOON format ===');
       console.log('Cleaned response length:', cleanedResponse.length);
+      console.log('Response preview (first 500 chars):', cleanedResponse.substring(0, 500));
 
-      // Try parsing directly first
-      try {
-        const parsed = JSON.parse(cleanedResponse);
+      // Parse TOON to JSON
+      const parsed = ToonParser.parse(cleanedResponse);
 
-        // Validate basic structure
-        if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
-          throw new Error('Invalid response structure from AI - missing required sections');
-        }
-
-        console.log('=== Successfully parsed JSON ===');
-        return parsed as IAstrologyNumerologyReading;
-      } catch (directParseError) {
-        console.log('Direct parse failed, attempting repair...');
-
-        // Try to repair common JSON issues
-        const repairedResponse = this.repairJSON(cleanedResponse);
-        const parsed = JSON.parse(repairedResponse);
-
-        // Validate basic structure
-        if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
-          throw new Error('Invalid response structure from AI - missing required sections');
-        }
-
-        console.log('=== Successfully parsed repaired JSON ===');
-        return parsed as IAstrologyNumerologyReading;
+      // Validate basic structure
+      if (!ToonParser.validateAstrologyReading(parsed)) {
+        throw new Error(
+          'Invalid response structure from AI - missing required sections (numerology, astrology, or combinedInsights)',
+        );
       }
+
+      console.log('=== Successfully parsed TOON format ===');
+      console.log('Parsed structure keys:', Object.keys(parsed));
+
+      return parsed as IAstrologyNumerologyReading;
     } catch (error) {
-      console.error('Error parsing AI response:', error);
+      console.error('Error parsing AI TOON response:', error);
       console.error('Error details:', error.message);
-      console.error('Raw response preview (first 1000 chars):', response.substring(0, 1000));
-      console.error('Raw response preview (last 500 chars):', response.substring(Math.max(0, response.length - 500)));
+      console.error(
+        'Raw response preview (first 1000 chars):',
+        response.substring(0, 1000),
+      );
+      console.error(
+        'Raw response preview (last 500 chars):',
+        response.substring(Math.max(0, response.length - 500)),
+      );
 
       throw new AstrologyServiceException(
-        'Failed to parse AI response. The AI may not have returned valid JSON. Please try again or contact support if the issue persists.'
+        'Failed to parse AI response. The AI may not have returned valid TOON format. Please try again or contact support if the issue persists.',
       );
     }
   }
 
   /**
-   * @description Attempt to repair common JSON issues
+   * @description Attempt to repair common TOON/JSON issues (legacy support)
    * @private
    */
   private repairJSON(jsonString: string): string {
-    let repaired = jsonString;
-
-    // Fix unescaped quotes in strings (common issue)
-    // This is a simple approach - more sophisticated repair might be needed
-
-    // Fix trailing commas before closing braces/brackets
-    repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
-
-    // Try to complete incomplete JSON by adding closing braces
-    const openBraces = (repaired.match(/\{/g) || []).length;
-    const closeBraces = (repaired.match(/\}/g) || []).length;
-    const openBrackets = (repaired.match(/\[/g) || []).length;
-    const closeBrackets = (repaired.match(/\]/g) || []).length;
-
-    // Add missing closing brackets
-    if (openBrackets > closeBrackets) {
-      const missing = openBrackets - closeBrackets;
-      console.log(`Adding ${missing} missing closing brackets`);
-      repaired += ']'.repeat(missing);
-    }
-
-    // Add missing closing braces
-    if (openBraces > closeBraces) {
-      const missing = openBraces - closeBraces;
-      console.log(`Adding ${missing} missing closing braces`);
-      repaired += '}'.repeat(missing);
-    }
-
-    // Remove any incomplete string at the end (if the response was cut off)
-    // Find the last complete value
-    const lastCompleteValueMatch = repaired.match(/.*[}\]"](\s*[,\s]*)?$/s);
-    if (!lastCompleteValueMatch && repaired.includes('"')) {
-      // Response might be cut off mid-string, try to find last complete section
-      const lastClosingBrace = repaired.lastIndexOf('}');
-      const lastClosingBracket = repaired.lastIndexOf(']');
-      const lastQuote = repaired.lastIndexOf('"');
-
-      // If there's an unclosed string after the last structural element
-      if (lastQuote > Math.max(lastClosingBrace, lastClosingBracket)) {
-        console.log('Detected incomplete string, attempting to close it');
-        // Find if this quote is actually closing a key or value
-        const beforeQuote = repaired.substring(0, lastQuote);
-        const quoteCount = (beforeQuote.match(/"/g) || []).length;
-
-        // If odd number of quotes, we need to close the string
-        if (quoteCount % 2 === 0) {
-          // This is an opening quote that wasn't closed
-          repaired += '"';
-        }
-      }
-    }
-
-    return repaired;
+    // This method is kept for backward compatibility but TOON format is more robust
+    return jsonString;
   }
 }

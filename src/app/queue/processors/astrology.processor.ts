@@ -13,9 +13,12 @@ import {
 import { AstrologyServiceException } from '@app/user/astrology/dto';
 import { LangChainService } from '@app/langchain/langchain.service';
 import { AstrologyReadingModelService } from '@app/user/astrology/entities/astrology-reading.service';
+import { ToonParser } from '@app/user/astrology/utils/toon-parser.util';
 import { Types } from 'mongoose';
 
-@Processor(QUEUE_NAMES.ASTROLOGY_QUEUE)
+@Processor(QUEUE_NAMES.ASTROLOGY_QUEUE, {
+  concurrency: 100,
+})
 @Injectable()
 export class AstrologyProcessor extends WorkerHost {
   private readonly logger = new Logger(AstrologyProcessor.name);
@@ -58,16 +61,20 @@ export class AstrologyProcessor extends WorkerHost {
       const startTime = Date.now();
 
       // Get AI response using LangChain with timeout protection
-      const aiResponse = await Promise.race([
-        this.langChainService.chatWithContext(
-          ASTROLOGY_SYSTEM_PROMPT,
-          userPrompt,
-        ),
-        new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('AI request timeout after 180 seconds')), 180000)
-        )
-      ]);
+      // const aiResponse = await Promise.race([
+      //   this.langChainService.chatWithContext(
+      //     ASTROLOGY_SYSTEM_PROMPT,
+      //     userPrompt,
+      //   ),
+      //   new Promise<string>((_, reject) =>
+      //     setTimeout(() => reject(new Error('AI request timeout after 180 seconds')), 180000)
+      //   )
+      // ]);
 
+      const aiResponse = await this.langChainService.chatWithContext(
+        ASTROLOGY_SYSTEM_PROMPT,
+        userPrompt,
+      )
       const endTime = Date.now();
       console.log(`=== AI response received in ${(endTime - startTime) / 1000}s ===`);
       console.log('Response length:', aiResponse.length, 'characters');
@@ -147,7 +154,7 @@ export class AstrologyProcessor extends WorkerHost {
 
       // Try parsing directly first
       try {
-        const parsed = JSON.parse(cleanedResponse);
+        const parsed = ToonParser.parse(cleanedResponse);
 
         // Validate basic structure
         if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
@@ -161,7 +168,7 @@ export class AstrologyProcessor extends WorkerHost {
 
         // Try to repair common JSON issues
         const repairedResponse = this.repairJSON(cleanedResponse);
-        const parsed = JSON.parse(repairedResponse);
+        const parsed = ToonParser.parse(repairedResponse);
 
         // Validate basic structure
         if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
@@ -246,10 +253,15 @@ export class AstrologyProcessor extends WorkerHost {
   async process(job: Job<IAstrologyJobData | IUserRegistrationJobData>): Promise<any> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
 
+    // set time out for 500ms
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+
     try {
       // Update job status to active in database
       // Ensure job record exists (some jobs might be added externally)
       const existing = await this.jobModelService.getJobByJobId(job.id as string);
+      console.log('=== existing ====', existing);
       if (!existing) {
         // Create a minimal record for this job
         await this.jobModelService.createJob({
@@ -263,6 +275,7 @@ export class AstrologyProcessor extends WorkerHost {
           priority: 0,
           attempts: 0,
         });
+        console.log('===  ==== here after data creation', );
       } else {
         await this.jobModelService.updateJobStatus(job.id as string, 'active', {
           startedAt: new Date(),
@@ -337,6 +350,7 @@ export class AstrologyProcessor extends WorkerHost {
       question,
     );
 
+    console.log('=== reading ====', reading);
     // Update progress: AI generation complete
     await job.updateProgress(70);
     await this.jobModelService.updateJobProgress(job.id as string, 70);
@@ -350,6 +364,7 @@ export class AstrologyProcessor extends WorkerHost {
       reading,
     );
 
+    console.log('=== savedReading ====', savedReading);
     // Update progress: Complete
     await job.updateProgress(100);
     await this.jobModelService.updateJobProgress(job.id as string, 100);

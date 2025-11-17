@@ -109,14 +109,17 @@ export class AuthService {
         const fullName = data.surname
           ? `${data.firstName} ${data.lastName} ${data.surname}`.trim()
           : `${data.firstName} ${data.lastName}`.trim();
-        await this.queueService.addAstrologyJob({
+        const job = await this.queueService.addAstrologyJob({
           userId: data._id,
           fullName,
           birthDate: data.birthDate,
           birthPlace: data.birthPlace,
         });
 
-        console.log(`addAstrologyJob job queued for user: ${data._id}`);
+        // Store the job ID in the user model
+        await this.userModelService.updateLastAstrologyJobId(data._id, job.id as string);
+
+        console.log(`addAstrologyJob job queued for user: ${data._id}, jobId: ${job.id}`);
       } catch (queueError) {
         // Log but don't fail registration if queue fails
         console.error('Failed to queue user addAstrologyJob job:', queueError);

@@ -15,6 +15,14 @@ export interface IAstrologyJobData {
   forceRegenerate?: boolean;
 }
 
+export interface IBirthstoneJobData {
+  userId: string;
+  fullName: string;
+  birthDate: Date;
+  birthPlace: string;
+  forceRegenerate?: boolean;
+}
+
 export interface IUserRegistrationJobData {
   userId: string;
   email: string;
@@ -58,6 +66,38 @@ export class QueueService {
       jobId: bullJob.id as string,
       userId: new Types.ObjectId(data.userId),
       jobType: JOB_TYPES.ASTROLOGY_READING,
+      jobData: data,
+      queueName: QUEUE_NAMES.ASTROLOGY_QUEUE,
+      status: 'waiting',
+      progress: 0,
+      priority,
+      attempts: 0,
+    });
+
+    return bullJob;
+  }
+
+  /**
+   * Add birthstone reading generation job to queue and store in database
+   */
+  async addBirthstoneJob(data: IBirthstoneJobData, priority: number = 10) {
+    const jobId = `birthstone-${data.userId}-${Date.now()}`;
+
+    // Add job to BullMQ queue
+    const bullJob = await this.astrologyQueue.add(
+      JOB_NAMES.GENERATE_BIRTHSTONE_READING,
+      data,
+      {
+        priority,
+        jobId,
+      },
+    );
+
+    // Store job in database
+    await this.jobModelService.createJob({
+      jobId: bullJob.id as string,
+      userId: new Types.ObjectId(data.userId),
+      jobType: JOB_TYPES.BIRTHSTONE_READING,
       jobData: data,
       queueName: QUEUE_NAMES.ASTROLOGY_QUEUE,
       status: 'waiting',

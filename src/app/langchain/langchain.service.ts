@@ -2,28 +2,87 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ChatOpenAI,
+  ChatGoogleGenerativeAI,
   HumanMessage,
   SystemMessage,
   AIMessage,
-  StringOutputParser,
   ChatPromptTemplate,
   OpenAIEmbeddings
 } from './langchain-compat';
 
 @Injectable()
 export class LangChainService {
-  private chatModel: ChatOpenAI;
-  private streamingSupported: boolean | null = null; // Track if streaming is supported
+  private chatModel: ChatOpenAI | ChatGoogleGenerativeAI;
+  private streamingSupported: boolean | null = null;
+  private provider: 'openai' | 'google'; // Track which provider is being used
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    // Determine which provider to use
+    const googleApiKey = this.configService.get<string>('GOOGLE_API_KEY');
+    const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const preferredProvider = this.configService.get<string>('LLM_PROVIDER') || 'google'; // Default to 'google' or 'openai'
+
+    // If preferred provider is explicitly set
+    if (preferredProvider === 'openai' && openaiApiKey) {
+      this.provider = 'openai';
+      this.initializeOpenAIModel(openaiApiKey);
+    } else if (preferredProvider === 'google' && googleApiKey) {
+      this.provider = 'google';
+      this.initializeGoogleModel(googleApiKey);
+    }
+    // Fallback logic if preferred provider is not available
+    else if (googleApiKey) {
+      this.provider = 'google';
+      this.initializeGoogleModel(googleApiKey);
+    } else if (openaiApiKey) {
+      this.provider = 'openai';
+      this.initializeOpenAIModel(openaiApiKey);
+    } else {
+      throw new Error('Neither GOOGLE_API_KEY nor OPENAI_API_KEY is configured');
+    }
+  }
+
+  /**
+   * Initialize Google Gemini model
+   */
+  private initializeGoogleModel(apiKey: string): void {
+    const modelName = this.configService.get<string>('GOOGLE_MODEL') || 'gemini-2.5-flash';
+    const temperatureStr = this.configService.get<string>('GOOGLE_TEMPERATURE');
+    const maxTokens = parseInt(this.configService.get<string>('GOOGLE_MAX_TOKENS') || '4000');
+    const timeout = parseInt(this.configService.get<string>('GOOGLE_TIMEOUT') || '120000');
+
+    console.log('Initializing LangChain with Google Gemini:', {
+      model: modelName,
+      temperature: temperatureStr || 'default',
+      maxTokens,
+      timeout: `${timeout}ms`,
+      hasApiKey: !!apiKey
+    });
+
+    const config: any = {
+      model: modelName, // Changed from 'modelName' to 'model'
+      apiKey: apiKey,
+      maxOutputTokens: maxTokens,
+    };
+
+    if (temperatureStr) {
+      config.temperature = parseFloat(temperatureStr);
+    }
+
+    this.chatModel = new ChatGoogleGenerativeAI(config);
+  }
+
+  /**
+   * Initialize OpenAI model
+   */
+  private initializeOpenAIModel(apiKey: string): void {
     const modelName = this.configService.get<string>('OPENAI_MODEL') || 'gpt-3.5-turbo';
     const baseURL = this.configService.get<string>('OPENAI_BASE_URL');
     const temperatureStr = this.configService.get<string>('OPENAI_TEMPERATURE');
     const maxTokens = parseInt(this.configService.get<string>('OPENAI_MAX_TOKENS') || '4000');
-    const timeout = parseInt(this.configService.get<string>('OPENAI_TIMEOUT') || '120000'); // 2 minutes default
+    const timeout = parseInt(this.configService.get<string>('OPENAI_TIMEOUT') || '120000');
 
-    console.log('Initializing LangChain with:', {
+    console.log('Initializing LangChain with OpenAI:', {
       model: modelName,
       baseURL: baseURL || 'default OpenAI',
       temperature: temperatureStr || 'default (1)',
@@ -32,20 +91,16 @@ export class LangChainService {
       hasApiKey: !!apiKey
     });
 
-    // Build config object conditionally
     const config: any = {
       openAIApiKey: apiKey,
       modelName: modelName,
-      // maxTokens: maxTokens,
       timeout: timeout,
     };
 
-    // Only add temperature if explicitly set (some models like gpt-4o-mini only support default)
     if (temperatureStr) {
       config.temperature = parseFloat(temperatureStr);
     }
 
-    // Add custom base URL if provided
     if (baseURL) {
       config.configuration = { baseURL };
     }
@@ -54,13 +109,13 @@ export class LangChainService {
   }
 
   /**
-   * @description Simple chat completion with OpenAI
+   * @description Simple chat completion
    * @param {string} message - The user message
    * @returns {Promise<string>} AI response
    */
   async chat(message: string): Promise<string> {
     try {
-      const response = await this.chatModel.invoke([
+      const response = await (this.chatModel as any).invoke([
         new HumanMessage(message),
       ]);
       return response.content.toString();
@@ -85,7 +140,7 @@ export class LangChainService {
 
       console.log('=== messages ====', messages);
       
-      const response = await this.chatModel.invoke(messages);
+      const response = await (this.chatModel as any).invoke(messages);
 
       console.log('=== response ====', response);
       return response.content.toString();
@@ -117,7 +172,7 @@ export class LangChainService {
         }
       });
 
-      const response = await this.chatModel.invoke(messages);
+      const response = await (this.chatModel as any).invoke(messages);
       return response.content.toString();
     } catch (error) {
       console.error('LangChain chat with history error:', error);
@@ -138,7 +193,7 @@ export class LangChainService {
     try {
       const promptTemplate = ChatPromptTemplate.fromTemplate(template);
       const formattedPrompt = await promptTemplate.invoke(variables);
-      const response = await this.chatModel.invoke(formattedPrompt);
+      const response = await (this.chatModel as any).invoke(formattedPrompt);
 
       console.log('=== response ====', response);
       
@@ -156,7 +211,7 @@ export class LangChainService {
    */
   async *streamChat(message: string): AsyncIterable<string> {
     try {
-      const stream = await this.chatModel.stream([new HumanMessage(message)]);
+      const stream = await (this.chatModel as any).stream([new HumanMessage(message)]);
       for await (const chunk of stream) {
         yield chunk.content.toString();
       }
@@ -194,7 +249,7 @@ export class LangChainService {
     // If we already know streaming isn't supported, skip directly to non-streaming
     if (this.streamingSupported === false) {
       const langchainMessages = buildMessages();
-      const response = await this.chatModel.invoke(langchainMessages);
+      const response = await (this.chatModel as any).invoke(langchainMessages);
       yield response.content.toString();
       return;
     }
@@ -203,7 +258,7 @@ export class LangChainService {
       const langchainMessages = buildMessages();
 
       // Try to stream the response (history is just context, not streamed)
-      const stream = await this.chatModel.stream(langchainMessages);
+      const stream = await (this.chatModel as any).stream(langchainMessages);
       for await (const chunk of stream) {
         const content = chunk.content;
         if (content) {
@@ -222,14 +277,14 @@ export class LangChainService {
         // Remember that streaming isn't supported to avoid future attempts
         if (this.streamingSupported === null) {
           this.streamingSupported = false;
-          console.warn('Streaming not supported by OpenAI organization. Using non-streaming mode for all future requests.');
+          console.warn('Streaming not supported by organization. Using non-streaming mode for all future requests.');
           console.warn('To enable streaming, verify your organization at: https://platform.openai.com/settings/organization/general');
         }
 
         const langchainMessages = buildMessages();
 
         // Get the full response without streaming
-        const response = await this.chatModel.invoke(langchainMessages);
+        const response = await (this.chatModel as any).invoke(langchainMessages);
         const fullContent = response.content.toString();
 
         // Yield the full response at once (simulating streaming)
@@ -257,8 +312,7 @@ export class LangChainService {
 ${tools ? `Available tools: ${tools.map((t) => `${t.name}: ${t.description}`).join(', ')}` : 'No specific tools available.'}
 Analyze the task and provide a detailed response or suggest which tool to use.`;
 
-      const response = await this.chatWithContext(systemPrompt, task);
-      return response;
+      return await this.chatWithContext(systemPrompt, task);
     } catch (error) {
       console.error('LangChain agentic call error:', error);
       throw new Error('Failed to execute agentic call');
@@ -277,8 +331,7 @@ Analyze the task and provide a detailed response or suggest which tool to use.`;
         openAIApiKey: this.configService.get<string>('OPENAI_API_KEY'),
         modelName: 'text-embedding-3-large', // Latest embedding model
       });
-      const vector = await embeddings.embedQuery(text);
-      return vector;
+      return await embeddings.embedQuery(text);
     } catch (error) {
       console.error('LangChain embeddings error:', error);
       throw new Error('Failed to get embeddings');
@@ -312,7 +365,7 @@ ${conversationText}
 
 Summary:`;
 
-      const summary = await this.chatModel.invoke([new HumanMessage(summaryPrompt)]);
+      const summary = await (this.chatModel as any).invoke([new HumanMessage(summaryPrompt)]);
       return summary.content.toString().trim();
     } catch (error) {
       console.error('LangChain summarize conversation error:', error);

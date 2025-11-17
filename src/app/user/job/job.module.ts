@@ -6,6 +6,7 @@ import { GuardAuthService } from '@helper/guardAuth.helper.service';
 import { CommonModule } from '@utils/common.module';
 import { UserModelsModule } from '@entities-user/user.model.module';
 import { TokenModelsModule } from '@entities-token/token.model.module';
+import { QueueModule } from '@app/queue/queue.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { TokenModelsModule } from '@entities-token/token.model.module';
     CommonModule,
     UserModelsModule,
     TokenModelsModule,
+    QueueModule,
   ],
   controllers: [JobController],
   providers: [JobService, GuardAuthService],

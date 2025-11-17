@@ -178,7 +178,7 @@ socket.once('connect', () => {
   //
   // Step 3: Send a message (will auto-create conversation if needed)
   setTimeout(() => {
-    sendChatMessage('Birth stone, stone', '691467299565ecc329584fd0');
+    sendChatMessage('hi how are you', '691467299565ecc329584fd0');
   }, 4000);
   
   // Step 4: After streaming completes, get conversation history

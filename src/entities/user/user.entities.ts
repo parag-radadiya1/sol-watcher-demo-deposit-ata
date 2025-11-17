@@ -102,6 +102,18 @@ export class User extends MongoSchema {
 
   @Prop({ type: Boolean, default: true })
   isActive?: boolean;
+
+  @ApiProperty({ example: 'astrology-userid-1234567890', required: false })
+  @Prop({ type: String, required: false })
+  @IsString()
+  @IsOptional()
+  lastAstrologyJobId?: string;
+
+  @ApiProperty({ example: 'birthstone-userid-1234567890', required: false })
+  @Prop({ type: String, required: false })
+  @IsString()
+  @IsOptional()
+  lastBirthstoneJobId?: string;
 }
 
 export const userSchema = SchemaFactory.createForClass(User);
