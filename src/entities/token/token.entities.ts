@@ -6,7 +6,7 @@ import { SchemaTypes } from 'mongoose';
 
 @Schema({ timestamps: true, versionKey: false, collection: 'token' })
 export class Token extends MongoSchema {
-  @ApiProperty({ example: 'ajuiahdsbazjsbajhb' })
+  @ApiProperty({ example: 'Bearer ajuiahdsbazjsbajhb' })
   @Prop({ type: String, required: true })
   @IsString()
   @IsNotEmpty()

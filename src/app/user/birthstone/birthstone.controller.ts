@@ -49,6 +49,20 @@ export class BirthstoneController {
     return this.birthstoneService.getMyBirthstone(req, value);
   }
 
+  @Post('get-my-birthstone-markdown')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({
+    description: 'Birthstone reading in markdown format retrieved successfully',
+  })
+  async getMyBirthstoneMarkdown(
+    @Req() req: IAuthGuardResponse,
+    @Body() value: CheckBirthstoneDto,
+  ): Promise<ICommonResponse<any>> {
+    return this.birthstoneService.getMyBirthstoneMarkdown(req, value);
+  }
+
   @Get('overview')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
@@ -75,4 +89,3 @@ export class BirthstoneController {
     return this.birthstoneService.getJobStatus(jobId);
   }
 }
-

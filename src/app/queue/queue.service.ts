@@ -11,6 +11,7 @@ export interface IAstrologyJobData {
   fullName: string;
   birthDate: Date;
   birthPlace: string;
+  gender: string;
   question?: string;
   forceRegenerate?: boolean;
 }
@@ -20,6 +21,7 @@ export interface IBirthstoneJobData {
   fullName: string;
   birthDate: Date;
   birthPlace: string;
+  gender: string;
   forceRegenerate?: boolean;
 }
 
@@ -36,6 +38,8 @@ export class QueueService {
   constructor(
     @InjectQueue(QUEUE_NAMES.ASTROLOGY_QUEUE)
     private readonly astrologyQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.BIRTHSTONE_QUEUE)
+    private readonly birthstoneQueue: Queue,
     private readonly configService: ConfigService,
     private readonly jobModelService: JobModelService,
   ) {
@@ -51,6 +55,7 @@ export class QueueService {
   async addAstrologyJob(data: IAstrologyJobData, priority: number = 10) {
     const jobId = `astrology-${data.userId}-${Date.now()}`;
 
+    console.log('===  ==== here in addAstrologyJob', );
     // Add job to BullMQ queue
     const bullJob = await this.astrologyQueue.add(
       JOB_NAMES.GENERATE_ASTROLOGY_READING,
@@ -62,7 +67,7 @@ export class QueueService {
     );
 
     // Store job in database
-    await this.jobModelService.createJob({
+    const jobData = await this.jobModelService.createJob({
       jobId: bullJob.id as string,
       userId: new Types.ObjectId(data.userId),
       jobType: JOB_TYPES.ASTROLOGY_READING,
@@ -74,6 +79,8 @@ export class QueueService {
       attempts: 0,
     });
 
+    console.log('=== jobData ====', jobData);
+
     return bullJob;
   }
 
@@ -84,7 +91,7 @@ export class QueueService {
     const jobId = `birthstone-${data.userId}-${Date.now()}`;
 
     // Add job to BullMQ queue
-    const bullJob = await this.astrologyQueue.add(
+    const bullJob = await this.birthstoneQueue.add(
       JOB_NAMES.GENERATE_BIRTHSTONE_READING,
       data,
       {
@@ -99,7 +106,7 @@ export class QueueService {
       userId: new Types.ObjectId(data.userId),
       jobType: JOB_TYPES.BIRTHSTONE_READING,
       jobData: data,
-      queueName: QUEUE_NAMES.ASTROLOGY_QUEUE,
+      queueName: QUEUE_NAMES.BIRTHSTONE_QUEUE,
       status: 'waiting',
       progress: 0,
       priority,

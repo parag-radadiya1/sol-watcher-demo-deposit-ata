@@ -133,11 +133,9 @@ export class JobService {
   ): Promise<ICommonResponse<JobResponseDto>> {
     const userId = req.userId;
 
-    console.log('=== req.userId ====', req.userId);
     // Get user to find their lastAstrologyJobId
     const user = await this.userModelService.getUserById(userId);
 
-    console.log('=== user ====', user);
     if (!user || !user.lastAstrologyJobId) {
       return {
         statusCode: HttpStatus.NOT_FOUND,
@@ -174,6 +172,7 @@ export class JobService {
     req: IAuthGuardResponse,
     jobId: string,
   ): Promise<ICommonResponse<JobResponseDto>> {
+    console.log('===   here ====', jobId);
     const userId = req.userId;
 
     // Get the original job
@@ -208,7 +207,8 @@ export class JobService {
     // Re-queue the job based on job type
     let newJob;
 
-    if (originalJob.jobType === 'astrology_reading') {
+    console.log('=== originalJob.jobType  ====', originalJob.jobType );
+    if (originalJob.jobType.toLowerCase() === 'astrology_reading') {
       newJob = await this.queueService.addAstrologyJob(
         originalJob.jobData,
         originalJob.priority,

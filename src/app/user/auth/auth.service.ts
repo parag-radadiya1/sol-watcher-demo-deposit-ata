@@ -26,6 +26,8 @@ import { InvalidToken } from './dto/auth.error';
 import * as https from 'https';
 import { v4 as uuidv4 } from 'uuid';
 import { QueueService } from '@app/queue/queue.service';
+import { PlanService } from '@entities-plan/plan.service';
+import { TokenTransactionService } from '@entities/token-transaction/token-transaction.service';
 
 @Injectable()
 export class AuthService {
@@ -39,6 +41,8 @@ export class AuthService {
     private readonly otpModelService: OtpModelService,
     private readonly twilioService: TwilioService,
     private readonly queueService: QueueService,
+    private readonly planService: PlanService,
+    private readonly tokenTransactionService: TokenTransactionService,
   ) {}
 
   /**
@@ -61,9 +65,35 @@ export class AuthService {
       if (checkCred) {
         throw new DuplicateEmailException();
       }
+      
+      // Get the free plan for new users
+      const freePlan = await this.planService.getFreePlan();
+      
       const { email, password } = value;
       value.password = await this.commonService.hashPassword(password);
-      const [data] = await this.userModelService.createUser(value, session);
+      
+      // Assign the free plan to the new user
+      const userDataWithPlan = {
+        ...value,
+        planId: freePlan._id.toString(),
+      };
+      
+      const [data] = await this.userModelService.createUser(userDataWithPlan, session);
+      
+      // Increment user count for the free plan
+      await this.planService.incrementUserCount(freePlan._id.toString());
+      
+      // Create initial token credit transaction for the user
+      await this.tokenTransactionService.creditTokens(
+        data._id.toString(),
+        freePlan.tokenBalance,
+        0, // Initial balance is 0
+        `Initial token credit from ${freePlan.name}`,
+        freePlan._id.toString(),
+      );
+      
+      console.log(`✅ Initial token credit of ${freePlan.tokenBalance} tokens for user ${data._id}`);
+      
       await session.commitTransaction();
       await session.endSession();
 
@@ -114,6 +144,7 @@ export class AuthService {
           fullName,
           birthDate: data.birthDate,
           birthPlace: data.birthPlace,
+          gender: data.gender,
         });
 
         // Store the job ID in the user model
@@ -124,6 +155,9 @@ export class AuthService {
         // Log but don't fail registration if queue fails
         console.error('Failed to queue user addAstrologyJob job:', queueError);
       }
+      
+      console.log(`✅ User registered with FREE plan - userId: ${data._id}, planId: ${freePlan._id}`);
+      
       return {
         statusCode: HttpStatus.CREATED,
         message: userResponse.userCreatedSuccessfully,
@@ -663,6 +697,7 @@ export class AuthService {
       throw new InvalidCredentials();
     }
   }
+
   async getProfile(req: IAuthGuardResponse): Promise<ICommonResponse<any>> {
     try {
       const user = await this.userModelService.getUserById(req.userId);
@@ -684,3 +719,5 @@ export class AuthService {
     }
   }
 }
+
+// yes, i conform

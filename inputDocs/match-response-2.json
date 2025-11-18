@@ -1,0 +1,146 @@
+{
+  "partners": {
+    "boy": {
+      "name": "Aarav Sharma",
+      "gender": "Male",
+      "birthDetails": {
+        "date": "2000-03-15",
+        "time": "15:45",
+        "city": "Jaipur",
+        "state": "Rajasthan",
+        "country": "India",
+        "latitude": 26.9124,
+        "longitude": 75.7873,
+        "timezone": "+05:30"
+      },
+      "loveIndicators": {
+        "elementDominance": "Water–Air mix",
+        "loveStyle": "Expressive yet sensitive; needs emotional depth",
+        "emotionalNature": "Warm-hearted, dramatic (Leo Moon)",
+        "communicationStyle": "Direct and energetic (Aries Mercury)"
+      }
+    },
+
+    "girl": {
+      "name": "Riya Patel",
+      "gender": "Female",
+      "birthDetails": {
+        "date": "2001-10-09",
+        "time": "06:10",
+        "city": "Ahmedabad",
+        "state": "Gujarat",
+        "country": "India",
+        "latitude": 23.0225,
+        "longitude": 72.5714,
+        "timezone": "+05:30"
+      },
+      "loveIndicators": {
+        "elementDominance": "Air–Water mix",
+        "loveStyle": "Practical yet romantic; values harmony",
+        "emotionalNature": "Deep and sensitive (Cancer Moon)",
+        "communicationStyle": "Intense and intuitive (Scorpio Mercury)"
+      }
+    }
+  },
+
+  "synastry": {
+    "overallSummary": "Strong emotional bond with good long-term potential, balanced by a few communication challenges.",
+    "aspects": [
+      {
+        "planetBoy": "sun",
+        "planetGirl": "moon",
+        "aspect": "sextile",
+        "orb": 3.2,
+        "meaning": "Emotional harmony and mutual support."
+      },
+      {
+        "planetBoy": "moon",
+        "planetGirl": "sun",
+        "aspect": "trine",
+        "orb": 2.5,
+        "meaning": "Natural flow of affection and understanding."
+      },
+      {
+        "planetBoy": "venus",
+        "planetGirl": "mars",
+        "aspect": "opposition",
+        "orb": 1.8,
+        "meaning": "Strong sexual attraction with occasional tension."
+      },
+      {
+        "planetBoy": "mercury",
+        "planetGirl": "mercury",
+        "aspect": "square",
+        "orb": 2.1,
+        "meaning": "Different communication styles may cause misunderstandings."
+      },
+      {
+        "planetBoy": "mars",
+        "planetGirl": "venus",
+        "aspect": "trine",
+        "orb": 2.7,
+        "meaning": "Balanced romantic chemistry."
+      }
+    ],
+    "compatibilityFactors": {
+      "emotionalBond": "Strong emotional connection due to Moon-Sun harmony.",
+      "communicationMatch": "Moderate; intense vs direct styles.",
+      "loveAttraction": "High; Venus-Mars interactions boost chemistry.",
+      "sexualEnergy": "Energetic and passionate.",
+      "longTermPotential": "Stable; strong complementary traits."
+    }
+  },
+
+  "compositeChart": {
+    "sun": {
+      "sign": "Leo",
+      "house": 10,
+      "meaning": "A relationship with strong public presence and ambition."
+    },
+    "moon": {
+      "sign": "Taurus",
+      "house": 7,
+      "meaning": "Emotional security within the partnership."
+    },
+    "ascendant": {
+      "sign": "Sagittarius",
+      "meaning": "Adventurous and growth-oriented relationship."
+    },
+    "venus": {
+      "sign": "Leo",
+      "house": 9,
+      "meaning": "Romantic connection grows through shared experiences and travel."
+    },
+    "mars": {
+      "sign": "Cancer",
+      "house": 8,
+      "meaning": "Strong intimacy and emotional-driven passion."
+    },
+    "relationshipThemes": {
+      "strengths": [
+        "Deep emotional understanding",
+        "Strong romantic chemistry",
+        "Shared appreciation for loyalty and commitment",
+        "Natural support for each other’s goals"
+      ],
+      "challenges": [
+        "Occasional communication differences",
+        "Boy may appear too direct, girl too emotional",
+        "Need for balanced expectations in love"
+      ]
+    }
+  },
+
+  "scores": {
+    "love": 82,
+    "emotion": 88,
+    "communication": 67,
+    "sexuality": 84,
+    "overall": 81
+  },
+
+  "finalSummary": {
+    "short": "A well-balanced connection with strong emotional depth and romantic chemistry.",
+    "detailed": "Aarav and Riya share a naturally supportive and affectionate connection. Their Moon–Sun harmony strengthens emotional security, while Venus–Mars aspects add romantic spark and attraction. Some communication differences exist, but with understanding, this relationship has long-term stability and growth potential."
+  }
+}

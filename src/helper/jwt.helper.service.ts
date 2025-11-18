@@ -69,6 +69,7 @@ export class JwtWebAuthService {
 
       return decoded;
     } catch (error) {
+      console.log('=== error ====', error);
       throw new TokenExpiredException();
     }
   }

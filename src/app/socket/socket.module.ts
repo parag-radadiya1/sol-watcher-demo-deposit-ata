@@ -6,6 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 
 import { SocketGateway } from './socket.gateway';
 import { SocketGatewayService } from './socket.gateway.service';
+import { ChatValidationService } from './services/chat-validation.service';
 import { LangChainModule } from '../langchain/langchain.module';
 import { MessageModelsModule } from '../../entities/message/message.model.module';
 import { ConversationModelModule } from '../../entities/conversation/conversation.model.module';
@@ -26,6 +27,7 @@ import { TokenModelsModule } from '../../entities/token/token.model.module';
     SocketGateway,
     CustomValidationService,
     SocketGatewayService,
+    ChatValidationService,
     GuardAuthService,
     JwtService,
     JwtWebAuthService,

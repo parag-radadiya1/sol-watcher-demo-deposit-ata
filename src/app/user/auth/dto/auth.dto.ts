@@ -1,4 +1,4 @@
-import { User } from '@entities-user/user.entities';
+import { User, Gender } from '@entities-user/user.entities';
 import { ApiProperty, IntersectionType, PickType } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Token } from '../../../../entities/token/token.entities';
@@ -7,7 +7,7 @@ import { Otp } from '@entities-otp/otp.entities';
 
 
 export class UserCreateDto extends IntersectionType(
-  PickType(User, ['firstName', 'lastName', 'surname', 'birthDate', 'birthPlace', 'name', 'mobileNumber', 'countryCode', 'email', 'password']),
+  PickType(User, ['firstName', 'lastName', 'surname', 'birthDate', 'birthPlace', 'name', 'gender', 'mobileNumber', 'countryCode', 'email', 'password']),
 ) {}
 
 
@@ -115,5 +115,10 @@ export class SocialLoginDto {
   @IsString()
   @IsNotEmpty()
   birthPlace: string;
+
+  @ApiProperty({ enum: Gender, example: 'male' })
+  @IsEnum(Gender)
+  @IsNotEmpty()
+  gender: Gender;
 }
 

@@ -11,8 +11,9 @@ import {
 import { QUEUE_NAMES, JOB_NAMES } from '../constants/queue.constants';
 import { ToonParser } from '@app/user/astrology/utils/toon-parser.util';
 import { IBirthstoneJobData } from '../queue.service';
+import { TokenUsageType } from '@entities/langchain-token-usage/langchain-token-usage.entities';
 
-@Processor(QUEUE_NAMES.ASTROLOGY_QUEUE, {
+@Processor(QUEUE_NAMES.BIRTHSTONE_QUEUE, {
   concurrency: 100,
 })
 @Injectable()
@@ -34,9 +35,9 @@ export class BirthstoneProcessor extends WorkerHost {
   }
 
   async handleBirthstoneGeneration(job: Job<IBirthstoneJobData>) {
-    const { userId, fullName, birthDate, birthPlace, forceRegenerate } = job.data;
+    const { userId, fullName, birthDate, birthPlace, gender, forceRegenerate } = job.data;
 
-    this.logger.log(`Processing birthstone job ${job.id} for user ${userId}`);
+    this.logger.log(`Processing birthstone job ${job.id} for user ${userId} with plan validation`);
 
     try {
       // Update job status to active
@@ -80,17 +81,33 @@ export class BirthstoneProcessor extends WorkerHost {
         fullName,
       )
         .replace('{birthDate}', birthDateFormatted)
-        .replace('{birthPlace}', birthPlace);
+        .replace('{birthPlace}', birthPlace)
+        .replace('{gender}', gender);
 
-      this.logger.log('Calling LangChain for birthstone reading generation...');
+      this.logger.log('Calling LangChain for birthstone reading generation with plan validation...');
 
-      // Call LangChain service with system and user prompts
-      const aiResponse = await this.langChainService.chatWithContext(
+      // 🔥 NEW: Use chatWithContextAndPlanValidation for full plan limit checking
+      // This validates: question limit, token limits, daily/monthly balance BEFORE making the AI call
+      const result = await this.langChainService.chatWithContextAndPlanValidation(
+        userId,
         BIRTHSTONE_SYSTEM_PROMPT,
         userPrompt,
+        null, // No conversation ID for background jobs
+        TokenUsageType.BIRTHSTONE,
       );
 
-      this.logger.log('AI Response received, parsing TOON format...');
+      const aiResponse = result.response;
+
+      this.logger.log('AI Response received with plan validation, parsing TOON format...');
+      this.logger.log('Token usage:', {
+        input: result.inputTokens,
+        output: result.outputTokens,
+        total: result.totalTokens,
+      });
+      this.logger.log('Remaining limits:', {
+        questions: result.remainingQuestions,
+        planLimitsChecked: result.planLimitsChecked,
+      });
 
       // Parse the TOON format response
       let parsedReading: any;
@@ -119,7 +136,7 @@ export class BirthstoneProcessor extends WorkerHost {
         parsedReading,
       );
 
-      this.logger.log(`Birthstone reading saved successfully for user ${userId}`);
+      this.logger.log(`✅ Birthstone reading saved successfully for user ${userId} with token tracking`);
 
       // Update job status to completed
       await this.jobModelService.updateJobStatus(
@@ -130,6 +147,17 @@ export class BirthstoneProcessor extends WorkerHost {
       return parsedReading;
     } catch (error) {
       this.logger.error(`Error processing birthstone job ${job.id}:`, error);
+
+      // 🔥 NEW: Enhanced error handling for plan limit errors
+      if (error.status === 403) {
+        this.logger.error(`Plan limit reached for user ${userId}: ${error.message}`);
+        // Mark job as failed with specific error
+        await this.jobModelService.updateJobStatus(
+          job.id as string,
+          'failed',
+        );
+        throw new Error(`Plan limit reached: ${error.message}. Please upgrade your plan to continue.`);
+      }
 
       // Update job status to failed
       await this.jobModelService.updateJobStatus(

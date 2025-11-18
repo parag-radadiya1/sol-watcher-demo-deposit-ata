@@ -7,13 +7,19 @@ import {
   IsIP,
   IsNotEmpty,
   IsOptional,
-  IsString, Matches, MaxLength, MinLength,
+  IsString, Matches, MaxLength, MinLength, IsEnum, IsNumber,
 } from 'class-validator';
 import { SchemaTypes } from 'mongoose';
 import { IsValidCountryCode, IsValidMobileNumber } from '@utils/common.validation';
 import { validationResponse } from '@utils/constant';
 import { REGEX } from '@utils/constants';
 import { Transform } from 'class-transformer';
+
+export enum Gender {
+  MALE = 'male',
+  FEMALE = 'female',
+  // OTHER = 'other',
+}
 
 @Schema({ timestamps: true, versionKey: false, collection: 'user' })
 export class User extends MongoSchema {
@@ -51,6 +57,12 @@ export class User extends MongoSchema {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiProperty({ enum: Gender, example: 'male' })
+  @Prop({ type: String, enum: Gender, required: true })
+  @IsEnum(Gender)
+  @IsNotEmpty()
+  gender: Gender;
 
   @Prop({ type: String, unique: true, required: true })
   @Transform(({ value }) => value?.trim().toLowerCase())
@@ -114,6 +126,12 @@ export class User extends MongoSchema {
   @IsString()
   @IsOptional()
   lastBirthstoneJobId?: string;
+
+  @ApiProperty({ type: String, example: '507f1f77bcf86cd799439012', required: false })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'plan', required: false })
+  @IsString()
+  @IsOptional()
+  planId?: string; // Reference to user's subscription plan
 }
 
 export const userSchema = SchemaFactory.createForClass(User);

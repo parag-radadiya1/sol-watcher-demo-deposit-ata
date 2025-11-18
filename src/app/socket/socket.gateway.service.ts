@@ -6,8 +6,10 @@ import { MessageChunkModelService } from '../../entities/message-chunk/message-c
 import { ConversationModelService } from '../../entities/conversation/conversation.service';
 import { MessageRole, MessageStatus } from '../../entities/message/message.entities';
 import { Types } from 'mongoose';
-import { ASTROLOGY_SYSTEM_PROMPT } from '@app/user/astrology/constants/astrology-prompt.constant';
+import { CHAT_SYSTEM_PROMPT } from './constants/chat-validation-prompt.constant';
+import { ChatValidationService } from './services/chat-validation.service';
 import { UserModelService } from '@entities-user/user.service';
+import { TokenUsageType } from '@entities/langchain-token-usage/langchain-token-usage.entities';
 
 
 @Injectable()
@@ -20,14 +22,16 @@ export class SocketGatewayService {
     private readonly messageModelService: MessageModelService,
     private readonly messageChunkModelService: MessageChunkModelService,
     private readonly conversationModelService: ConversationModelService,
+    private readonly chatValidationService: ChatValidationService,
   ) {}
 
   /**
    * Stream AI response chunks from LangChainService to a socket (or room).
+   * NOW WITH FULL PLAN VALIDATION + CONTENT VALIDATION
    * Emits:
    *  - 'aiMessageChunk' for each partial chunk
-   *  - 'aiMessageComplete' when finished
-   *  - 'aiMessageError' on error
+   *  - 'aiMessageComplete' when finished (with remaining limits info)
+   *  - 'aiMessageError' on error (including plan limit errors and validation errors)
    */
   async streamChatToSocket(
     client: Socket,
@@ -43,6 +47,29 @@ export class SocketGatewayService {
     let sequence = 0;
 
     try {
+      // 🔥 NEW: Validate if message is astrology-related using AI
+      this.logger.log(`Validating message content for astrology relevance...`);
+      const isValid = await this.chatValidationService.isAstrologyRelated(message);
+
+      if (!isValid) {
+        this.logger.warn(`Non-astrology message blocked: "${message.substring(0, 50)}..."`);
+
+        const errorMessage = this.chatValidationService.getNonAstrologyMessage();
+
+        // Emit validation error
+        target.emit('aiMessageError', {
+          conversationId: conversationId ?? null,
+          userId,
+          error: errorMessage,
+          errorType: 'VALIDATION_ERROR',
+          requiresUpgrade: false,
+        });
+
+        return;
+      }
+
+      this.logger.log(`✅ Message validated as astrology-related, proceeding...`);
+
       // Validate or create conversationId
       if (conversationId && !Types.ObjectId.isValid(conversationId)) {
         this.logger.warn(`Invalid conversationId "${conversationId}", creating new conversation`);
@@ -114,8 +141,14 @@ export class SocketGatewayService {
       // Clear the placeholder content
       let fullContent = '';
 
-      // Pass the complete message stack (includes system, history, and new user message)
-      for await (const chunk of this.langChainService.streamChatWithHistory(conversationHistory)) {
+      // 🔥 Use streamChatWithPlanValidation for full plan limit checking
+      // This validates: question limit, chat message limit, token limits, daily/monthly balance
+      for await (const chunk of this.langChainService.streamChatWithPlanValidation(
+        userId,
+        conversationHistory,
+        conversationId, // Important: pass conversation ID for chat message limit tracking
+        TokenUsageType.CONVERSATION,
+      )) {
         const chunkStr = chunk ?? '';
 
         // Skip empty chunks to avoid validation errors
@@ -154,13 +187,15 @@ export class SocketGatewayService {
         await this.messageModelService.markCompleted((messageDoc as any)._id);
       }
 
+      // Emit completion with plan limits info
       (roomName ? client.to(roomName) : client).emit('aiMessageComplete', {
         conversationId: conversationId,
         userId,
         messageId: messageDoc?._id ?? null,
+        message: '✅ Message complete. Token usage tracked and limits validated.',
       });
 
-      this.logger.log(`Streaming complete for user=${userId} conversation=${conversationId}`);
+      this.logger.log(`✅ Streaming complete for user=${userId} conversation=${conversationId} with plan validation and content validation`);
     } catch (error) {
       this.logger.error('Error while streaming chat to socket', error?.stack ?? error);
 
@@ -169,19 +204,27 @@ export class SocketGatewayService {
         await this.messageModelService.markFailed((messageDoc as any)._id, error as Error);
       }
 
+      // Enhanced error handling for plan limit errors
+      const errorMessage = (error && (error as any).message) || String(error);
+      const isPlanLimitError = error.status === 403 || errorMessage.includes('limit reached') || errorMessage.includes('limit exceeded');
+
       (roomName ? client.to(roomName) : client).emit('aiMessageError', {
         conversationId: conversationId ?? null,
         userId,
         messageId: messageDoc?._id ?? null,
-        error: (error && (error as any).message) || String(error),
+        error: errorMessage,
+        requiresUpgrade: isPlanLimitError, // Flag to show upgrade prompt in UI
+        errorType: isPlanLimitError ? 'PLAN_LIMIT' : 'SYSTEM_ERROR',
       });
+
       throw error;
     }
   }
 
   /**
    * Build conversation history with recent messages
-   * Strategy: Keep last 20 messages for context (more cost-effective than summarization)
+   * Strategy: Keep last 4 messages for context (more cost-effective than summarization)
+   * 🔥 UPDATED: Using improved CHAT_SYSTEM_PROMPT for concise responses
    */
   private async buildSmartConversationHistory(
     allMessages: any[],
@@ -204,16 +247,18 @@ export class SocketGatewayService {
       timeZoneName: 'short'
     });
 
-    const MAX_CONTEXT_MESSAGES = 4; // Keep last 20 messages for context
+    const MAX_CONTEXT_MESSAGES = 4; // Keep last 4 messages for context
     const conversationHistory: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
-    // Base system prompt
-    const systemPrompt = `${ASTROLOGY_SYSTEM_PROMPT} user details are as bellowed data
-    **Personal Details:**
+    // 🔥 NEW: Use improved chat system prompt
+    const systemPrompt = `${CHAT_SYSTEM_PROMPT}
+
+**User Birth Details:**
 - Full Name: ${fullName}
 - Birth Date & Time: ${birthDateFormatted}
 - Birth Place: ${user.birthPlace}
-    `;
+
+Use these details to provide personalized insights when relevant.`;
 
     // Add system prompt
     conversationHistory.push({
@@ -223,7 +268,6 @@ export class SocketGatewayService {
 
     // Get the most recent messages (up to MAX_CONTEXT_MESSAGES)
     const recentMessages = allMessages.slice(-MAX_CONTEXT_MESSAGES);
-    console.log('=== recentMessages ====', recentMessages);
 
     // Add recent messages to conversation history
     recentMessages.forEach((msg: any) => {
@@ -237,7 +281,6 @@ export class SocketGatewayService {
 
     this.logger.log(`Using ${recentMessages.length} recent messages as context (${allMessages.length} total in DB)`);
 
-    console.log('=== conversationHistory ====', conversationHistory);
     return conversationHistory;
   }
 

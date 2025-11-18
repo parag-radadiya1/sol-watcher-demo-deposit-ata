@@ -31,6 +31,7 @@ export const BIRTHSTONE_USER_PROMPT_TEMPLATE = `Generate a comprehensive birthst
 Full Name: {fullName}
 Birth Date: {birthDate}
 Birth Place: {birthPlace}
+Gender: {gender}
 
 Provide a detailed analysis in TOON format with the following EXACT structure:
 

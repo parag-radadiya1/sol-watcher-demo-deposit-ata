@@ -35,10 +35,15 @@
       "@mail/*": ["src/app/mail/*"],
       "@app/*": ["src/app/*"],
       "@test/*": ["test/*"],
+      "@entities/*": ["src/entities/*"],
       "@entities-user/*": ["src/entities/user/*"],
       "@entities-token/*": ["src/entities/token/*"],
       "@entities-otp/*": ["src/entities/otp/*"],
       "@entities-job/*": ["src/entities/job/*"],
+      "@entities-marriage-match/*": ["src/entities/marriage-match/*"],
+      "@entities-plan/*": ["src/entities/plan/*"],
+      "@entities-message/*": ["src/entities/message/*"],
+      "@entities-conversation/*": ["src/entities/conversation/*"],
       "@user-auth/*": ["src/app/user/auth/*"]
     }
   }

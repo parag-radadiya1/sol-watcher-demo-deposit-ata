@@ -25,12 +25,9 @@ export class ToonParser {
   static parse(toonString: string): any {
     const lines = toonString.split('\n');
     const root = {};
-    const stack: Array<{ obj: any; indent: number; isArray?: boolean }> = [
+    const stack: Array<{ obj: any; indent: number; isArray?: boolean; arrayParent?: any }> = [
       { obj: root, indent: -1 },
     ];
-
-    let currentArrayItem: any = null;
-    let arrayItemIndent = -1;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -46,11 +43,18 @@ export class ToonParser {
 
       // Handle array items (lines starting with -)
       if (trimmedLine.startsWith('-')) {
-        const parent = stack[stack.length - 1].obj;
+        // Pop stack until we find the array parent or an item at the same indent level
+        while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+          stack.pop();
+        }
+
+        const currentContext = stack[stack.length - 1];
+        const parent = currentContext.arrayParent || currentContext.obj;
 
         // Ensure parent is an array
         if (!Array.isArray(parent)) {
-          console.warn('Found array item but parent is not an array');
+          console.warn('Found array item but parent is not an array at line', i, ':', trimmedLine);
+          console.warn('Parent type:', typeof parent, 'Keys:', Object.keys(parent || {}));
           continue;
         }
 
@@ -59,25 +63,23 @@ export class ToonParser {
 
         if (content.includes(':')) {
           // This is an object array item with inline property
-          currentArrayItem = {};
-          arrayItemIndent = indent;
-          parent.push(currentArrayItem);
-          stack.push({ obj: currentArrayItem, indent, isArray: false });
+          const newItem = {};
+          parent.push(newItem);
+          stack.push({ obj: newItem, indent, isArray: false, arrayParent: parent });
 
           // Parse the inline property
           const colonIndex = content.indexOf(':');
           const key = content.substring(0, colonIndex).trim();
           const value = content.substring(colonIndex + 1).trim();
-          currentArrayItem[key] = this.parseValue(value);
+          newItem[key] = this.parseValue(value);
         } else if (content) {
           // Simple value array item
           parent.push(this.parseValue(content));
         } else {
-          // Multi-line object array item
-          currentArrayItem = {};
-          arrayItemIndent = indent;
-          parent.push(currentArrayItem);
-          stack.push({ obj: currentArrayItem, indent, isArray: false });
+          // Multi-line object array item (properties on following lines)
+          const newItem = {};
+          parent.push(newItem);
+          stack.push({ obj: newItem, indent, isArray: false, arrayParent: parent });
         }
 
         continue;
@@ -88,7 +90,8 @@ export class ToonParser {
         stack.pop();
       }
 
-      const parent = stack[stack.length - 1].obj;
+      const currentContext = stack[stack.length - 1];
+      const parent = currentContext.obj;
 
       // Check if this is a key-value pair
       if (trimmedLine.includes(':')) {
@@ -97,8 +100,10 @@ export class ToonParser {
         const value = trimmedLine.substring(colonIndex + 1).trim();
 
         if (Array.isArray(parent)) {
-          // Adding property to current array item
-          parent[parent.length - 1][key] = this.parseValue(value);
+          // Adding property to current array item (shouldn't happen in well-formed TOON)
+          if (parent.length > 0 && typeof parent[parent.length - 1] === 'object') {
+            parent[parent.length - 1][key] = this.parseValue(value);
+          }
         } else {
           parent[key] = this.parseValue(value);
         }
@@ -114,7 +119,7 @@ export class ToonParser {
         if (nextIndent > indent && nextTrimmed.startsWith('-')) {
           // This is an array
           parent[key] = [];
-          stack.push({ obj: parent[key], indent, isArray: true });
+          stack.push({ obj: parent[key], indent, isArray: true, arrayParent: parent[key] });
         } else if (nextIndent > indent) {
           // This is an object
           parent[key] = {};

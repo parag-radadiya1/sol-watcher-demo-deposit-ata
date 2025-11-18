@@ -60,6 +60,10 @@ export const ASTROLOGY_USER_PROMPT_TEMPLATE = `Generate a complete, detailed, an
 - Full Name: {fullName}
 - Birth Date & Time: {birthDate}
 - Birth Place: {birthPlace}
+- Gender: {gender}
+- **CURRENT DATE TODAY: {currentDate}**
+
+**IMPORTANT: Use the CURRENT DATE above to calculate the next 12 months. Do NOT use past dates.**
 
 Your readings are:
 - Highly structured and organized
@@ -74,7 +78,7 @@ CRITICAL TOON FORMATTING RULES:
 2. Do NOT wrap your response in \`\`\`toon or \`\`\` markers
 3. Use indentation (2 spaces per level) to show structure instead of braces
 4. Use "key: value" format for properties
-5. Strings with spaces or special characters should be in quotes, simple values don't need quotes
+5. Strings with spaces or special characters should be in "quotes", simple values don't need quotes
 6. Arrays can be inline [item1, item2] or multi-line with dashes
 7. Complete the entire TOON structure before stopping - do not let the response be cut off
 8. TOON is more token-efficient than JSON, reducing token usage by ~30%
@@ -388,14 +392,78 @@ combinedInsights
     mainChallenges: ["Overthinking", "Emotional sensitivity"]
     integrationAdvice: "How to balance strengths and challenges"
   twelveMonthForecast
-    - month: "January 2025"
-      numerologyTheme: "Personal month 1 - New beginnings"
-      astrologyTheme: "Jupiter transit brings expansion"
-      combinedGuidance: "Excellent time to start new projects"
-    - month: "February 2025"
-      numerologyTheme: "Personal month 2 - Partnerships"
-      astrologyTheme: "Venus aspects enhance relationships"
-      combinedGuidance: "Focus on collaboration and harmony"
+    - month: "[Current Month] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation based on calculation]"
+      astrologyTheme: "[Current astrological transits and influences]"
+      combinedGuidance: "[Integrated guidance combining numerology and astrology]"
+      keyFocus: "[Main theme and energy of the month]"
+    - month: "[Current Month + 1] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 2] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 3] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 4] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 5] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 6] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 7] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 8] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 9] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 10] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
+    - month: "[Current Month + 11] [Year]"
+      monthNumber: [calculated personal month]
+      numerologyTheme: "[Personal month interpretation]"
+      astrologyTheme: "[Astrological transits]"
+      combinedGuidance: "[Integrated guidance]"
+      keyFocus: "[Main theme]"
 \`\`\`
 
 **Requirements:**
@@ -404,7 +472,16 @@ combinedInsights
 3. Provide detailed, specific, and personalized interpretations (minimum 100 words per major section)
 4. Include practical guidance and actionable advice
 5. Create an integrated reading that shows how numerology and astrology complement each other
-6. Generate a 12-month forecast combining both systems (all 12 months)
+6. **CRITICAL: Generate forecasts for THE NEXT 12 CONSECUTIVE MONTHS starting from TODAY'S DATE/CURRENT MONTH
+ (when you generate this reading). Determine what the current month and year are at the time of generation,
+  then provide forecasts for that month plus the following 11 months. For example: If today is November 18, 2025,
+   generate forecasts for November 2025, December 2025, January 2026, February 2026... through October 2026.
+    If today is March 2026, generate forecasts for March 2026, April 2026... through February 2027.
+     Calculate the Personal Month number for each month based on the birth date and current Personal Year.
+      Each month MUST include: month name with year, monthNumber, numerologyTheme, astrologyTheme,
+       combinedGuidance, and keyFocus. 
+       DO NOT use fixed/static months - always calculate from the current date.**
+   make sure 12 month data generate for twelveMonthForecast this field and also there will be 12 object in array
 7. Ensure all calculations show your work
 8. Provide a comprehensive planet position summary analyzing the overall chart energy
 9. Recommend birthstones based on birth month, zodiac sign, and planetary positions

@@ -66,7 +66,7 @@ export class UserModelService {
 
 
   getUserById(id: string): Promise<User | null> {
-    return this.userModel.findById(id);
+    return this.userModel.findById(id).lean();
   }
 
   deleteUserById(_id: string, session: ClientSession): Promise<DeleteResult> {

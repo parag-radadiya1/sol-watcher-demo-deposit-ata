@@ -29,6 +29,9 @@ import { JobModelModule } from '@entities-job/job.model.module';
     BullModule.registerQueue({
       name: QUEUE_NAMES.ASTROLOGY_QUEUE,
     }),
+    BullModule.registerQueue({
+      name: QUEUE_NAMES.BIRTHSTONE_QUEUE,
+    }),
     LangChainModule,
     UserModelsModule,
     AstrologyReadingModelModule,

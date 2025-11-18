@@ -15,6 +15,7 @@ import { LangChainService } from '@app/langchain/langchain.service';
 import { AstrologyReadingModelService } from '@app/user/astrology/entities/astrology-reading.service';
 import { ToonParser } from '@app/user/astrology/utils/toon-parser.util';
 import { Types } from 'mongoose';
+import { TokenUsageType } from '@entities/langchain-token-usage/langchain-token-usage.entities';
 
 @Processor(QUEUE_NAMES.ASTROLOGY_QUEUE, {
   concurrency: 100,
@@ -34,12 +35,15 @@ export class AstrologyProcessor extends WorkerHost {
 
   /**
    * @description Generate astrology and numerology reading using AI
+   * NOW WITH FULL PLAN VALIDATION - checks question limits and token limits
    * @private
    */
   private async generateAstrologyReading(
+    userId: string, // 🔥 NEW: Added userId parameter for plan validation
     fullName: string,
     birthDate: string,
     birthPlace: string,
+    gender: string,
     question?: string,
   ): Promise<IAstrologyNumerologyReading> {
     try {
@@ -48,38 +52,55 @@ export class AstrologyProcessor extends WorkerHost {
         ? SPECIFIC_QUESTION_TEMPLATE.replace('{question}', question)
         : '';
 
+      // Get current date in a clear format for the AI
+      const currentDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
       // Build the complete user prompt
       const userPrompt = ASTROLOGY_USER_PROMPT_TEMPLATE
         .replace('{fullName}', fullName)
         .replace('{birthDate}', birthDate)
         .replace('{birthPlace}', birthPlace)
+        .replace('{gender}', gender)
+        .replace('{currentDate}', currentDate)
         .replace('{specificQuestion}', specificQuestion);
 
-      console.log('=== Starting AI astrology reading generation ===');
+      console.log('=== Starting AI astrology reading generation with plan validation ===');
+      console.log('Current Date:', currentDate);
       console.log('User prompt length:', userPrompt.length, 'characters');
 
       const startTime = Date.now();
 
-      // Get AI response using LangChain with timeout protection
-      // const aiResponse = await Promise.race([
-      //   this.langChainService.chatWithContext(
-      //     ASTROLOGY_SYSTEM_PROMPT,
-      //     userPrompt,
-      //   ),
-      //   new Promise<string>((_, reject) =>
-      //     setTimeout(() => reject(new Error('AI request timeout after 180 seconds')), 180000)
-      //   )
-      // ]);
-
-      const aiResponse = await this.langChainService.chatWithContext(
+      // 🔥 NEW: Use chatWithContextAndPlanValidation for full plan limit checking
+      // This validates: question limit, token limits, daily/monthly balance BEFORE making the AI call
+      const result = await this.langChainService.chatWithContextAndPlanValidation(
+        userId,
         ASTROLOGY_SYSTEM_PROMPT,
         userPrompt,
-      )
+        null, // No conversation ID for background jobs
+        TokenUsageType.ASTROLOGY,
+      );
+
+      const aiResponse = result.response;
       const endTime = Date.now();
+
       console.log(`=== AI response received in ${(endTime - startTime) / 1000}s ===`);
       console.log('Response length:', aiResponse.length, 'characters');
+      console.log('Token usage:', {
+        input: result.inputTokens,
+        output: result.outputTokens,
+        total: result.totalTokens,
+      });
+      console.log('Remaining limits:', {
+        questions: result.remainingQuestions,
+        planLimitsChecked: result.planLimitsChecked,
+      });
       console.log('Response preview:', aiResponse.substring(0, 200));
 
+      console.log('=== aiResponse ====', JSON.stringify(aiResponse));
       // Check if response is empty or too short
       if (!aiResponse || aiResponse.trim().length === 0) {
         console.error('Empty AI response received - model may have hit token limits');
@@ -100,7 +121,13 @@ export class AstrologyProcessor extends WorkerHost {
     } catch (error) {
       console.error('Error generating astrology reading:', error);
 
-      // Better error messages
+      // 🔥 NEW: Better error messages for plan limit errors
+      if (error.status === 403) {
+        throw new AstrologyServiceException(
+          `Plan limit reached: ${error.message}. Please upgrade your plan to continue.`
+        );
+      }
+
       if (error.message?.includes('timeout')) {
         throw new AstrologyServiceException(
           'AI request timed out. The astrology reading is taking too long to generate. Please try again or simplify your request.'
@@ -131,61 +158,72 @@ export class AstrologyProcessor extends WorkerHost {
   }
 
   /**
-   * @description Parse and validate AI response as JSON
+   * @description Parse and validate AI response as TOON format
    * @private
    */
   private parseAIResponse(response: string): IAstrologyNumerologyReading {
     try {
-      // Remove markdown code blocks if present
-      let cleanedResponse = response.trim();
+      // Clean TOON response (remove markdown code blocks if present)
+      let cleanedResponse = ToonParser.cleanToonResponse(response);
 
-      // Remove ```json or ``` markers
-      cleanedResponse = cleanedResponse.replace(/^```json?\s*/i, '');
-      cleanedResponse = cleanedResponse.replace(/```\s*$/, '');
-
-      // Try to extract JSON if it's embedded in text
-      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanedResponse = jsonMatch[0];
-      }
-
-      console.log('=== Attempting to parse JSON ===');
+      console.log('=== Attempting to parse TOON format ===');
       console.log('Cleaned response length:', cleanedResponse.length);
+      console.log('First 500 chars:', cleanedResponse.substring(0, 500));
 
-      // Try parsing directly first
-      try {
-        const parsed = ToonParser.parse(cleanedResponse);
-
-        // Validate basic structure
-        if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
-          throw new Error('Invalid response structure from AI - missing required sections');
-        }
-
-        console.log('=== Successfully parsed JSON ===');
-        return parsed as IAstrologyNumerologyReading;
-      } catch (directParseError) {
-        console.log('Direct parse failed, attempting repair...');
-
-        // Try to repair common JSON issues
-        const repairedResponse = this.repairJSON(cleanedResponse);
-        const parsed = ToonParser.parse(repairedResponse);
-
-        // Validate basic structure
-        if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
-          throw new Error('Invalid response structure from AI - missing required sections');
-        }
-
-        console.log('=== Successfully parsed repaired JSON ===');
-        return parsed as IAstrologyNumerologyReading;
+      // Find and log the twelveMonthForecast section for debugging
+      const forecastIndex = cleanedResponse.indexOf('twelveMonthForecast');
+      if (forecastIndex !== -1) {
+        const forecastSection = cleanedResponse.substring(forecastIndex, forecastIndex + 2000);
+        console.log('\n=== TwelveMonthForecast Section (first 2000 chars) ===');
+        console.log(forecastSection);
+        console.log('=== End of section ===\n');
       }
+
+      // Parse TOON format
+      const parsed = ToonParser.parse(cleanedResponse);
+
+      // Validate basic structure
+      if (!parsed.numerology || !parsed.astrology || !parsed.combinedInsights) {
+        console.error('Missing sections in parsed result:', {
+          hasNumerology: !!parsed.numerology,
+          hasAstrology: !!parsed.astrology,
+          hasCombinedInsights: !!parsed.combinedInsights,
+        });
+        throw new Error('Invalid response structure from AI - missing required sections');
+      }
+
+      // Validate twelveMonthForecast
+      if (parsed.combinedInsights?.twelveMonthForecast) {
+        const forecast = parsed.combinedInsights.twelveMonthForecast;
+        console.log('=== Twelve Month Forecast Validation ===');
+        console.log('Type:', Array.isArray(forecast) ? 'Array' : typeof forecast);
+        console.log('Length:', Array.isArray(forecast) ? forecast.length : 'N/A');
+
+        if (Array.isArray(forecast) && forecast.length > 0) {
+          console.log('First month:', JSON.stringify(forecast[0], null, 2));
+          console.log('Total months:', forecast.length);
+        }
+      }
+
+      console.log('=== Successfully parsed TOON format ===');
+      console.log('Structure validation:', {
+        numerology: !!parsed.numerology,
+        astrology: !!parsed.astrology,
+        combinedInsights: !!parsed.combinedInsights,
+        twelveMonthForecast: Array.isArray(parsed.combinedInsights?.twelveMonthForecast),
+        forecastLength: parsed.combinedInsights?.twelveMonthForecast?.length || 0,
+      });
+
+      return parsed as IAstrologyNumerologyReading;
     } catch (error) {
       console.error('Error parsing AI response:', error);
       console.error('Error details:', error.message);
+      console.error('Stack:', error.stack);
       console.error('Raw response preview (first 1000 chars):', response.substring(0, 1000));
       console.error('Raw response preview (last 500 chars):', response.substring(Math.max(0, response.length - 500)));
 
       throw new AstrologyServiceException(
-        'Failed to parse AI response. The AI may not have returned valid JSON. Please try again or contact support if the issue persists.'
+        'Failed to parse AI response in TOON format. The AI may not have returned valid TOON. Please try again or contact support if the issue persists.'
       );
     }
   }
@@ -321,7 +359,7 @@ export class AstrologyProcessor extends WorkerHost {
    * Process astrology reading generation
    */
   private async processAstrologyReading(job: Job<IAstrologyJobData>) {
-    const { userId, fullName, birthDate, birthPlace, question } = job.data;
+    const { userId, fullName, birthDate, birthPlace, gender, question } = job.data;
 
     this.logger.log(`Generating astrology reading for user ${userId}`);
 
@@ -344,9 +382,11 @@ export class AstrologyProcessor extends WorkerHost {
 
     // Generate new reading using AI
     const reading = await this.generateAstrologyReading(
+      userId, // Pass userId for plan validation
       fullName,
       birthDateFormatted,
       birthPlace,
+      gender,
       question,
     );
 
@@ -376,6 +416,7 @@ export class AstrologyProcessor extends WorkerHost {
       fullName,
       birthDate,
       birthPlace,
+      gender,
       question,
       reading: savedReading,
       generatedAt: new Date(),

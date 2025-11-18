@@ -9,6 +9,8 @@ import { OtpModelModule } from '@entities-otp/otp.model.module';
 import { GuardAuthService } from '@helper/guardAuth.helper.service';
 import { TwilioModule } from '@app/twilio/twilio.module';
 import { QueueModule } from '@app/queue';
+import { PlanModelModule } from '@entities-plan/plan.model.module';
+import { TokenTransactionModelModule } from '@entities/token-transaction/token-transaction.model.module';
 
 
 @Module({
@@ -19,7 +21,9 @@ import { QueueModule } from '@app/queue';
     TokenModelsModule,
     OtpModelModule,
     TwilioModule,
-    QueueModule
+    QueueModule,
+    PlanModelModule,
+    TokenTransactionModelModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, GuardAuthService],

@@ -12,6 +12,7 @@ import { BirthstoneReadingModelService } from '../../../entities/birthstone-read
 import { QueueService } from '@app/queue/queue.service';
 import { JobModelService } from '@entities-job/job.service';
 import { JOB_TYPES } from '@app/queue/constants/queue.constants';
+import { BirthstoneMarkdownFormatter } from './utils/birthstone-markdown-formatter.util';
 
 @Injectable()
 export class BirthstoneService {
@@ -75,11 +76,17 @@ export class BirthstoneService {
           );
 
         if (cachedReading) {
+          // Convert to markdown format
+          const markdown = BirthstoneMarkdownFormatter.toMarkdown(
+            cachedReading.reading,
+          );
+
           return {
             statusCode: HttpStatus.OK,
             message: 'Birthstone reading retrieved from cache',
             data: {
               reading: cachedReading.reading,
+              markdown,
               userDetails: {
                 fullName,
                 birthDate: birthDateFormatted,
@@ -116,6 +123,7 @@ export class BirthstoneService {
         fullName,
         birthDate: user.birthDate,
         birthPlace: user.birthPlace,
+        gender: user.gender,
         forceRegenerate: value.forceRegenerate,
       });
 
@@ -148,6 +156,85 @@ export class BirthstoneService {
       };
     } catch (error) {
       console.error('Birthstone service error:', error);
+      if (
+        error instanceof IncompleteBirthDetailsException ||
+        error instanceof BirthstoneServiceException
+      ) {
+        throw error;
+      }
+      throw new BirthstoneServiceException(error.message);
+    }
+  }
+
+  /**
+   * @description Get birthstone reading in markdown format
+   * Returns birthstone reading formatted as markdown (similar to birthstone_overview.md)
+   * @param {IAuthGuardResponse} req - The authenticated request with user info
+   * @param {CheckBirthstoneDto} value - Optional force regenerate flag
+   * @returns {Promise<ICommonResponse<any>>} Birthstone reading as markdown string
+   * @throws {IncompleteBirthDetailsException} If user birth details are incomplete
+   * @throws {BirthstoneServiceException} If service fails
+   */
+  async getMyBirthstoneMarkdown(
+    req: IAuthGuardResponse,
+    value: CheckBirthstoneDto,
+  ): Promise<ICommonResponse<any>> {
+    try {
+      // Get user details from database
+      const user = await this.userModelService.getUserById(req.userId);
+
+      if (!user) {
+        throw new IncompleteBirthDetailsException();
+      }
+
+      // Validate that user has all required birth details
+      if (!user.birthDate || !user.birthPlace || !user.name) {
+        throw new IncompleteBirthDetailsException();
+      }
+
+      // Prepare user birth details
+      const fullName = user.surname
+        ? `${user.firstName} ${user.lastName} ${user.surname}`.trim()
+        : `${user.firstName} ${user.lastName}`.trim();
+
+      // Check if we have a cached reading (unless force regenerate is requested)
+      if (!value?.forceRegenerate) {
+        const cachedReading =
+          await this.birthstoneReadingModelService.findByUserAndBirthDetails(
+            req.userId,
+            user.birthDate,
+            user.birthPlace,
+          );
+
+        if (cachedReading && cachedReading.reading) {
+          // Convert to markdown format
+          const markdown = BirthstoneMarkdownFormatter.toMarkdown(
+            cachedReading.reading,
+          );
+
+          return {
+            statusCode: HttpStatus.OK,
+            message:
+              'Birthstone reading in markdown format retrieved successfully',
+            data: {
+              markdown,
+              userDetails: {
+                fullName,
+                birthDate: user.birthDate,
+                birthPlace: user.birthPlace,
+              },
+              cached: true,
+              generatedAt: cachedReading.generatedAt,
+            },
+          };
+        }
+      }
+
+      throw new BirthstoneServiceException(
+        'No birthstone reading found. Please generate a reading first by calling /get-my-birthstone endpoint.',
+      );
+    } catch (error) {
+      console.error('Birthstone markdown service error:', error);
       if (
         error instanceof IncompleteBirthDetailsException ||
         error instanceof BirthstoneServiceException

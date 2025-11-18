@@ -9,16 +9,9 @@ import {
   AstrologyServiceException,
 } from './dto';
 import { AstrologyReadingModelService } from './entities/astrology-reading.service';
-import {
-  ASTROLOGY_SYSTEM_PROMPT,
-  ASTROLOGY_USER_PROMPT_TEMPLATE,
-  SPECIFIC_QUESTION_TEMPLATE,
-} from './constants/astrology-prompt.constant';
-import { IAstrologyNumerologyReading } from './interfaces/astrology-reading.interface';
 import { QueueService } from '@app/queue/queue.service';
 import { JobModelService } from '@entities-job/job.service';
 import { JOB_TYPES } from '@app/queue/constants/queue.constants';
-import { ToonParser } from './utils/toon-parser.util';
 
 @Injectable()
 export class AstrologyService {
@@ -124,6 +117,7 @@ export class AstrologyService {
         fullName,
         birthDate: user.birthDate,
         birthPlace: user.birthPlace,
+        gender: user.gender,
         question: value.question,
         forceRegenerate: value.forceRegenerate,
       });
@@ -189,7 +183,6 @@ export class AstrologyService {
       if (jobStatus.state === 'completed' && jobStatus.returnvalue) {
         const result = jobStatus.returnvalue;
 
-        console.log('=== result ====', result);
         if (result.cached) {
           return {
             statusCode: HttpStatus.OK,
@@ -226,162 +219,5 @@ export class AstrologyService {
       console.error('Error getting job status:', error);
       throw new AstrologyServiceException('Failed to get job status');
     }
-  }
-
-  /**
-   * @description Generate astrology and numerology reading using AI
-   * @private
-   */
-  private async generateAstrologyReading(
-    fullName: string,
-    birthDate: string,
-    birthPlace: string,
-    question?: string,
-  ): Promise<IAstrologyNumerologyReading> {
-    try {
-      // Build the specific question section
-      const specificQuestion = question
-        ? SPECIFIC_QUESTION_TEMPLATE.replace('{question}', question)
-        : '';
-
-      // Build the complete user prompt
-      const userPrompt = ASTROLOGY_USER_PROMPT_TEMPLATE.replace(
-        '{fullName}',
-        fullName,
-      )
-        .replace('{birthDate}', birthDate)
-        .replace('{birthPlace}', birthPlace)
-        .replace('{specificQuestion}', specificQuestion);
-
-      console.log('=== Starting AI astrology reading generation ===');
-      console.log('User prompt length:', userPrompt.length, 'characters');
-
-      const startTime = Date.now();
-
-      // Get AI response using LangChain with timeout protection
-      const aiResponse = await Promise.race([
-        this.langChainService.chatWithContext(
-          ASTROLOGY_SYSTEM_PROMPT,
-          userPrompt,
-        ),
-        new Promise<string>((_, reject) =>
-          setTimeout(
-            () => reject(new Error('AI request timeout after 180 seconds')),
-            180000,
-          ),
-        ),
-      ]);
-
-      const endTime = Date.now();
-      console.log(
-        `=== AI response received in ${(endTime - startTime) / 1000}s ===`,
-      );
-      console.log('Response length:', aiResponse.length, 'characters');
-      console.log('Response preview:', aiResponse.substring(0, 200));
-
-      // Check if response is empty or too short
-      if (!aiResponse || aiResponse.trim().length === 0) {
-        console.error(
-          'Empty AI response received - model may have hit token limits',
-        );
-        throw new AstrologyServiceException(
-          'The AI model did not generate any content. This usually happens when the model hits token limits. Please try again, or contact support if the issue persists.',
-        );
-      }
-
-      if (aiResponse.length < 100) {
-        console.warn('AI response is suspiciously short:', aiResponse);
-        throw new AstrologyServiceException(
-          'The AI model generated an incomplete response. Please try again.',
-        );
-      }
-
-      // Parse the JSON response
-      return this.parseAIResponse(aiResponse);
-    } catch (error) {
-      console.error('Error generating astrology reading:', error);
-
-      // Better error messages
-      if (error.message?.includes('timeout')) {
-        throw new AstrologyServiceException(
-          'AI request timed out. The astrology reading is taking too long to generate. Please try again or simplify your request.',
-        );
-      }
-
-      if (error.message?.includes('rate limit')) {
-        throw new AstrologyServiceException(
-          'API rate limit exceeded. Please wait a moment and try again.',
-        );
-      }
-
-      if (error.message?.includes('token')) {
-        throw new AstrologyServiceException(
-          'The request is too large for the AI model. Please try with a shorter question.',
-        );
-      }
-
-      // Re-throw AstrologyServiceException as-is
-      if (error instanceof AstrologyServiceException) {
-        throw error;
-      }
-
-      throw new AstrologyServiceException(
-        error?.message || 'Failed to generate astrology reading from AI',
-      );
-    }
-  }
-
-  /**
-   * @description Parse and validate AI response in TOON format
-   * @private
-   */
-  private parseAIResponse(response: string): IAstrologyNumerologyReading {
-    try {
-      // Clean the TOON response (remove markdown code blocks)
-      const cleanedResponse = ToonParser.cleanToonResponse(response);
-
-      console.log('=== Attempting to parse TOON format ===');
-      console.log('Cleaned response length:', cleanedResponse.length);
-      console.log('Response preview (first 500 chars):', cleanedResponse.substring(0, 500));
-
-      // Parse TOON to JSON
-      const parsed = ToonParser.parse(cleanedResponse);
-
-      // Validate basic structure
-      if (!ToonParser.validateAstrologyReading(parsed)) {
-        throw new Error(
-          'Invalid response structure from AI - missing required sections (numerology, astrology, or combinedInsights)',
-        );
-      }
-
-      console.log('=== Successfully parsed TOON format ===');
-      console.log('Parsed structure keys:', Object.keys(parsed));
-
-      return parsed as IAstrologyNumerologyReading;
-    } catch (error) {
-      console.error('Error parsing AI TOON response:', error);
-      console.error('Error details:', error.message);
-      console.error(
-        'Raw response preview (first 1000 chars):',
-        response.substring(0, 1000),
-      );
-      console.error(
-        'Raw response preview (last 500 chars):',
-        response.substring(Math.max(0, response.length - 500)),
-      );
-
-      throw new AstrologyServiceException(
-        'Failed to parse AI response. The AI may not have returned valid TOON format. Please try again or contact support if the issue persists.',
-      );
-    }
-  }
-
-  /**
-   * @description Attempt to repair common TOON/JSON issues (legacy support)
-   * @private
-   */
-  private repairJSON(jsonString: string): string {
-    // This method is kept for backward compatibility but TOON format is more robust
-    return jsonString;
   }
 }

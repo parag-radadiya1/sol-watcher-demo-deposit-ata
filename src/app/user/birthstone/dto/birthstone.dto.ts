@@ -17,6 +17,7 @@ export class CheckBirthstoneDto {
 
 export interface IBirthstoneResponse {
   reading?: IBirthstoneReading;
+  markdown?: string;
   userDetails?: {
     fullName: string;
     birthDate: string;
@@ -70,4 +71,3 @@ export class BirthstoneSuccessResponse implements ICommonResponse<IBirthstoneRes
   })
   data: IBirthstoneResponse;
 }
-
