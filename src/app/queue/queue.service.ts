@@ -215,6 +215,10 @@ export class QueueService {
     return this.astrologyQueue;
   }
 
+  getBirthstoneQueue() {
+    return this.birthstoneQueue
+  }
+
   /**
    * Cancel an existing job by jobId
    * Removes it from the queue and marks as failed in database

@@ -1,7 +1,7 @@
 import { CustomValidationService } from '@helper/customValidation.helper.service';
 import { GuardAuthService } from '@helper/guardAuth.helper.service';
 import { JwtWebAuthService } from '@helper/jwt.helper.service';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 import { SocketGateway } from './socket.gateway';
@@ -13,15 +13,17 @@ import { ConversationModelModule } from '../../entities/conversation/conversatio
 import { MessageChunkModelsModule } from '../../entities/message-chunk/message-chunk.model.module';
 import { UserModelsModule } from '../../entities/user/user.model.module';
 import { TokenModelsModule } from '../../entities/token/token.model.module';
+import { TokenManagementModule } from '@app/user/token-management/token-management.module';
 
 @Module({
   imports: [
-    LangChainModule,
+    forwardRef(() => LangChainModule),
     MessageModelsModule,
     ConversationModelModule,
     MessageChunkModelsModule,
     UserModelsModule,
     TokenModelsModule,
+    TokenManagementModule,
   ],
   providers: [
     SocketGateway,

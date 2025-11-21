@@ -6,10 +6,9 @@ import { TokenModelsModule } from '@entities-token/token.model.module';
 import { LangChainModule } from '@app/langchain/langchain.module';
 import { GuardAuthService } from '@helper/guardAuth.helper.service';
 import { CommonModule } from '@utils/common.module';
-import { AstrologyReadingModelModule } from './entities/astrology-reading.model.module';
 import { QueueModule } from '@app/queue';
 import { JobModelModule } from '@entities-job/job.model.module';
-import { JobController } from '@app/user/job/job.controller';
+import { AstrologyReadingModelModule } from '@entities/astrology-reading/astrology-reading.model.module';
 
 @Module({
   imports: [

@@ -17,27 +17,75 @@ import { Type } from 'class-transformer';
 export class CreateMarriageMatchDto {
   @ApiProperty({ description: 'Partners information' })
   @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => Object)
   partners: {
-    boy: any;
-    girl: any;
+    boy: {
+      name: string;
+      birthDate: string;
+      birthTime: string;
+      birthPlace: string;
+      gender: string;
+    };
+    girl: {
+      name: string;
+      birthDate: string;
+      birthTime: string;
+      birthPlace: string;
+      gender: string;
+    };
   };
 
   @ApiProperty({ description: 'Synastry analysis' })
   @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => Object)
   synastry: {
     overallSummary: string;
-    aspects: any[];
-    compatibilityFactors: any;
+    aspects: Array<{
+      planet1: string;
+      planet2: string;
+      aspect: string;
+      orb: number;
+      interpretation: string;
+    }>;
+    compatibilityFactors: {
+      emotional: string;
+      intellectual: string;
+      physical: string;
+      spiritual: string;
+    };
   };
 
   @ApiProperty({ description: 'Composite chart analysis' })
   @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => Object)
   compositeChart: {
-    sun: any;
-    moon: any;
-    ascendant: any;
-    venus: any;
-    mars: any;
+    sun: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
+    moon: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
+    ascendant: {
+      sign: string;
+      interpretation: string;
+    };
+    venus: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
+    mars: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
     relationshipThemes: {
       strengths: string[];
       challenges: string[];
@@ -46,6 +94,8 @@ export class CreateMarriageMatchDto {
 
   @ApiProperty({ description: 'Compatibility scores' })
   @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => Object)
   scores: {
     love: number;
     emotion: number;
@@ -56,6 +106,8 @@ export class CreateMarriageMatchDto {
 
   @ApiProperty({ description: 'Final summary' })
   @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => Object)
   finalSummary: {
     short: string;
     detailed: string;
@@ -76,27 +128,75 @@ export class CreateMarriageMatchDto {
 export class UpdateMarriageMatchDto {
   @ApiProperty({ description: 'Partners information', required: false })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => Object)
   partners?: {
-    boy: any;
-    girl: any;
+    boy: {
+      name: string;
+      birthDate: string;
+      birthTime: string;
+      birthPlace: string;
+      gender: string;
+    };
+    girl: {
+      name: string;
+      birthDate: string;
+      birthTime: string;
+      birthPlace: string;
+      gender: string;
+    };
   };
 
   @ApiProperty({ description: 'Synastry analysis', required: false })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => Object)
   synastry?: {
     overallSummary: string;
-    aspects: any[];
-    compatibilityFactors: any;
+    aspects: Array<{
+      planet1: string;
+      planet2: string;
+      aspect: string;
+      orb: number;
+      interpretation: string;
+    }>;
+    compatibilityFactors: {
+      emotional: string;
+      intellectual: string;
+      physical: string;
+      spiritual: string;
+    };
   };
 
   @ApiProperty({ description: 'Composite chart analysis', required: false })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => Object)
   compositeChart?: {
-    sun: any;
-    moon: any;
-    ascendant: any;
-    venus: any;
-    mars: any;
+    sun: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
+    moon: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
+    ascendant: {
+      sign: string;
+      interpretation: string;
+    };
+    venus: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
+    mars: {
+      sign: string;
+      house: number;
+      interpretation: string;
+    };
     relationshipThemes: {
       strengths: string[];
       challenges: string[];
@@ -105,6 +205,8 @@ export class UpdateMarriageMatchDto {
 
   @ApiProperty({ description: 'Compatibility scores', required: false })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => Object)
   scores?: {
     love: number;
     emotion: number;
@@ -115,6 +217,8 @@ export class UpdateMarriageMatchDto {
 
   @ApiProperty({ description: 'Final summary', required: false })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => Object)
   finalSummary?: {
     short: string;
     detailed: string;

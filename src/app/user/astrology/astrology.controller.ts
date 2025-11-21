@@ -16,10 +16,10 @@ import { commonResponse } from '@utils/constant';
 import { AuthGuard } from '@guard/auth.guard';
 import { AstrologyService } from './astrology.service';
 import { 
-  CheckAstrologyDto, 
-  AstrologySuccessResponse, 
-  IAstrologyResponse 
-} from './dto';
+  CheckAstrologyDto
+} from './dto/astrology.dto';
+import { AstrologySuccessResponse } from './dto/astrology.response.dto';
+import { IAstrologyResponse } from './dto/astrology.interface';
 
 @Controller('user/astrology')
 @ApiTags('User-Astrology')
@@ -47,18 +47,5 @@ export class AstrologyController {
     @Body() value: CheckAstrologyDto,
   ): Promise<ICommonResponse<IAstrologyResponse>> {
     return this.astrologyService.checkMyAstrology(req, value);
-  }
-
-  @Get('job-status/:jobId')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
-  @ApiBearerAuth()
-  @ApiOkResponse({
-    description: 'Job status retrieved successfully',
-  })
-  getJobStatus(
-    @Param('jobId') jobId: string,
-  ): Promise<ICommonResponse<any>> {
-    return this.astrologyService.getJobStatus(jobId);
   }
 }

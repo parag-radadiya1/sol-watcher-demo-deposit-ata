@@ -58,7 +58,6 @@ export class AuthService {
     value: UserCreateDto,
   ): Promise<ICommonResponse<IRegisterResponse>> {
     const session = await this.connection.startSession();
-
     try {
       session.startTransaction();
       const checkCred = await this.userModelService.checkCred(value.email);
@@ -77,9 +76,9 @@ export class AuthService {
         ...value,
         planId: freePlan._id.toString(),
       };
-      
+
       const [data] = await this.userModelService.createUser(userDataWithPlan, session);
-      
+
       // Increment user count for the free plan
       await this.planService.incrementUserCount(freePlan._id.toString());
       
@@ -135,9 +134,8 @@ export class AuthService {
       });
       // Create background job for user addAstrologyJob processing
       try {
-
-        const fullName = data.surname
-          ? `${data.firstName} ${data.lastName} ${data.surname}`.trim()
+        const fullName = data.middleName
+          ? `${data.firstName} ${data.lastName} ${data.middleName}`.trim()
           : `${data.firstName} ${data.lastName}`.trim();
         const job = await this.queueService.addAstrologyJob({
           userId: data._id,

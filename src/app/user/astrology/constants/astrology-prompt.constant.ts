@@ -203,55 +203,77 @@ astrology
       sign: "Taurus"
       house: 2
       degree: "25°32'"
+      motion: "Direct"
+      degAbsolute: "55.533"
       interpretation: "Sun in Taurus interpretation"
     moon
       sign: "Pisces"
       house: 12
       degree: "15°42'"
+      motion: "Direct"
+      degAbsolute: "345.7"
       interpretation: "Moon in Pisces interpretation"
     rising
       sign: "Capricorn"
       degree: "10°15'"
+      motion: "Direct"
+      degAbsolute: "280.25"
       interpretation: "Capricorn rising interpretation"
     mercury
       sign: "Taurus"
       house: 2
       degree: "18°25'"
+      motion: "Direct"
+      degAbsolute: "48.417"
       interpretation: "Mercury placement interpretation"
     venus
       sign: "Gemini"
       house: 3
       degree: "5°10'"
+      motion: "Direct"
+      degAbsolute: "65.167"
       interpretation: "Venus placement interpretation"
     mars
       sign: "Aries"
       house: 1
       degree: "22°45'"
+      motion: "Direct"
+      degAbsolute: "22.75"
       interpretation: "Mars placement interpretation"
     jupiter
       sign: "Cancer"
       house: 4
       degree: "12°30'"
+      motion: "Direct"
+      degAbsolute: "102.5"
       interpretation: "Jupiter placement interpretation"
     saturn
       sign: "Capricorn"
       house: 10
       degree: "8°55'"
+      motion: "Direct"
+      degAbsolute: "278.917"
       interpretation: "Saturn placement interpretation"
     uranus
       sign: "Aquarius"
       house: 11
       degree: "15°20'"
+      motion: "Direct"
+      degAbsolute: "315.333"
       interpretation: "Uranus placement interpretation"
     neptune
       sign: "Pisces"
       house: 12
       degree: "20°10'"
+      motion: "Direct"
+      degAbsolute: "350.167"
       interpretation: "Neptune placement interpretation"
     pluto
       sign: "Scorpio"
       house: 8
       degree: "18°35'"
+      motion: "Direct"
+      degAbsolute: "228.583"
       interpretation: "Pluto placement interpretation"
     northNode
       sign: "Gemini"

@@ -1,8 +1,8 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { QUEUE_NAMES, JOB_NAMES } from '../constants/queue.constants';
-import { IAstrologyJobData, IUserRegistrationJobData } from '../queue.service';
+import { QUEUE_NAMES, JOB_NAMES } from '@app/queue/constants/queue.constants';
+import { IAstrologyJobData, IUserRegistrationJobData } from '@app/queue';
 import { JobModelService } from '@entities-job/job.service';
 import { IAstrologyNumerologyReading } from '@app/user/astrology/interfaces';
 import {
@@ -12,10 +12,10 @@ import {
 } from '@app/user/astrology/constants/astrology-prompt.constant';
 import { AstrologyServiceException } from '@app/user/astrology/dto';
 import { LangChainService } from '@app/langchain/langchain.service';
-import { AstrologyReadingModelService } from '@app/user/astrology/entities/astrology-reading.service';
 import { ToonParser } from '@app/user/astrology/utils/toon-parser.util';
 import { Types } from 'mongoose';
 import { TokenUsageType } from '@entities/langchain-token-usage/langchain-token-usage.entities';
+import { AstrologyReadingModelService } from '@entities/astrology-reading/astrology-reading.service';
 
 @Processor(QUEUE_NAMES.ASTROLOGY_QUEUE, {
   concurrency: 100,
@@ -390,7 +390,6 @@ export class AstrologyProcessor extends WorkerHost {
       question,
     );
 
-    console.log('=== reading ====', reading);
     // Update progress: AI generation complete
     await job.updateProgress(70);
     await this.jobModelService.updateJobProgress(job.id as string, 70);
@@ -404,7 +403,6 @@ export class AstrologyProcessor extends WorkerHost {
       reading,
     );
 
-    console.log('=== savedReading ====', savedReading);
     // Update progress: Complete
     await job.updateProgress(100);
     await this.jobModelService.updateJobProgress(job.id as string, 100);

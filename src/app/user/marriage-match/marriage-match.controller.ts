@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Get,
-  Put,
   Delete,
   Body,
   Param,
@@ -27,9 +26,23 @@ import {
 import { CheckMarriageMatchDto } from './dto/check-marriage-match.dto';
 import { AuthGuard } from '@guard/auth.guard';
 import { IAuthGuardResponse, ICommonResponse } from '@utils/dto';
+import {
+  CheckMarriageMatchSuccessResponse,
+  GetMarriageMatchSuccessResponse,
+  GetMarriageMatchesListSuccessResponse,
+  GetMarriageMatchDetailSuccessResponse,
+  GetPartnerMatchSuccessResponse,
+  DeleteMarriageMatchSuccessResponse,
+} from './dto/marriage-match.response.dto';
+import { MarriageMatch } from '@entities-marriage-match/marriage-match.entities';
+import {
+  IMarriageMatchResponse,
+  IMarriageMatchesListResponse,
+  IMarriageMatchDetailResponse,
+} from './dto/marriage-match.interface';
 
 @ApiTags('Marriage Match')
-@Controller('marriage-match')
+@Controller('user/marriage-match')
 @UseGuards(AuthGuard)
 @ApiBearerAuth()
 export class MarriageMatchController {
@@ -46,30 +59,13 @@ export class MarriageMatchController {
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({
     description: 'Marriage match compatibility analysis generated successfully',
+    type: CheckMarriageMatchSuccessResponse,
   })
   async checkMarriageMatch(
     @Req() req: IAuthGuardResponse,
     @Body() data: CheckMarriageMatchDto,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IMarriageMatchResponse>> {
     return this.marriageMatchService.checkMarriageMatch(req, data);
-  }
-
-  /**
-   * @description Create a new marriage match record (manual entry)
-   * @param req Authenticated user request
-   * @param data Marriage match data
-   * @returns Created match record
-   */
-  @Post('create')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiCreatedResponse({
-    description: 'Marriage match record created successfully',
-  })
-  async createMatch(
-    @Req() req: IAuthGuardResponse,
-    @Body() data: CreateMarriageMatchDto,
-  ): Promise<ICommonResponse<any>> {
-    return this.marriageMatchService.createMatch(req, data);
   }
 
   /**
@@ -82,11 +78,12 @@ export class MarriageMatchController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
     description: 'Marriage match retrieved successfully',
+    type: GetMarriageMatchDetailSuccessResponse,
   })
   async getMatch(
     @Req() req: IAuthGuardResponse,
     @Param('matchId') matchId: string,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IMarriageMatchDetailResponse>> {
     return this.marriageMatchService.getMatchById(req, matchId);
   }
 
@@ -100,60 +97,13 @@ export class MarriageMatchController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
     description: 'Marriage matches retrieved successfully',
+    type: GetMarriageMatchesListSuccessResponse,
   })
   async getMyMatches(
     @Req() req: IAuthGuardResponse,
     @Query() query: GetMarriageMatchesQueryDto,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IMarriageMatchesListResponse>> {
     return this.marriageMatchService.getMyMatches(req, query);
-  }
-
-  /**
-   * @description Get high compatibility matches (above 60%)
-   * @param req Authenticated user request
-   * @returns Array of high compatibility matches
-   */
-  @Get('filters/high-compatibility')
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({
-    description: 'High compatibility matches retrieved successfully',
-  })
-  async getHighCompatibilityMatches(
-    @Req() req: IAuthGuardResponse,
-  ): Promise<ICommonResponse<any>> {
-    return this.marriageMatchService.getHighCompatibilityMatches(req);
-  }
-
-  /**
-   * @description Get match statistics for the current user
-   * @param req Authenticated user request
-   * @returns Match statistics
-   */
-  @Get('stats/overview')
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({
-    description: 'Match statistics retrieved successfully',
-  })
-  async getMatchStatistics(
-    @Req() req: IAuthGuardResponse,
-  ): Promise<ICommonResponse<any>> {
-    return this.marriageMatchService.getMatchStatistics(req);
-  }
-
-  /**
-   * @description Get all matches with mangal dosha issues
-   * @param req Authenticated user request
-   * @returns Array of matches with mangal dosha
-   */
-  @Get('filters/mangal-dosha')
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({
-    description: 'Matches with mangal dosha retrieved successfully',
-  })
-  async getMatchesWithMangalDosha(
-    @Req() req: IAuthGuardResponse,
-  ): Promise<ICommonResponse<any>> {
-    return this.marriageMatchService.getMatchesWithMangalDosha(req);
   }
 
   /**
@@ -170,28 +120,8 @@ export class MarriageMatchController {
   async getMatchWithPartner(
     @Req() req: IAuthGuardResponse,
     @Param('partnerId') partnerId: string,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<MarriageMatch>> {
     return this.marriageMatchService.getMatchWithPartner(req, partnerId);
-  }
-
-  /**
-   * @description Update a marriage match record
-   * @param req Authenticated user request
-   * @param matchId Match ID to update
-   * @param data Updated match data
-   * @returns Updated match record
-   */
-  @Put(':matchId')
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({
-    description: 'Marriage match updated successfully',
-  })
-  async updateMatch(
-    @Req() req: IAuthGuardResponse,
-    @Param('matchId') matchId: string,
-    @Body() data: UpdateMarriageMatchDto,
-  ): Promise<ICommonResponse<any>> {
-    return this.marriageMatchService.updateMatch(req, matchId, data);
   }
 
   /**
@@ -204,11 +134,12 @@ export class MarriageMatchController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
     description: 'Marriage match deleted successfully',
+    type: DeleteMarriageMatchSuccessResponse,
   })
   async deleteMatch(
     @Req() req: IAuthGuardResponse,
     @Param('matchId') matchId: string,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<{ deleted: boolean }>> {
     return this.marriageMatchService.deleteMatch(req, matchId);
   }
 }

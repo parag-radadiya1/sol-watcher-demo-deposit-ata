@@ -10,6 +10,7 @@ import { IsEmail, IsEnum, IsNotEmpty, IsString, MaxLength, MinLength, ValidateIf
 import { Transform } from 'class-transformer';
 import { OTP_TYPE } from '@utils/enums';
 import { SchemaTypes } from 'mongoose';
+import { commonResponse } from '@utils/constant';
 
 @Schema({ timestamps: true, versionKey: false, collection: 'token' })
 export class Otp extends MongoSchema {
@@ -30,7 +31,7 @@ export class Otp extends MongoSchema {
   @Prop({ type: String, required: true })
   @Transform(({ value }) => value?.trim().toLowerCase())
   // @IsNotEmpty()
-  @IsEmail()
+  @IsEmail({}, { message: commonResponse.invalidEmailAddress })
   @IsString()
   @ApiProperty({ example: 'a@gmail.com' })
   email?: string;

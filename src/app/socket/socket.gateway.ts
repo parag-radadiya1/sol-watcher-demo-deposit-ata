@@ -62,19 +62,32 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('joinRoom')
   @UseGuards(SocketAuthGuard)
-  handleJoinRoom(socket: Socket, roomName: string) {
+  async handleJoinRoom(socket: Socket, roomName: string) {
     try {
+
+      console.log('=== roomName ====', roomName);
+      
       if (!roomName || typeof roomName !== 'string') {
+        console.log('===  here ====', );
         return { status: 'error', message: 'Invalid room name' };
       }
 
       const userId = socket.data?.userId;
+      console.log('=== userId ====', userId);
       if (userId) {
         this.clients.set(userId, socket);
       }
 
+      if (roomName.toString() !== userId.toString()) {
+        console.log('===   here  1 ====', );
+        return { status: 'error', message: 'Invalid room name' };
+      }
+
+      const data = await this.socketGatewayService.getUserPlanData(
+        userId,
+      );
       socket.join(roomName);
-      socket.emit('joinedRoom', { roomName });
+      socket.emit('joinedRoom', { roomName, ...data });
       this.logger.log(`User ${userId ?? 'unknown'} joined room ${roomName}`);
 
       return { status: 'ok', room: roomName };
@@ -151,37 +164,43 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('getMessages')
-  @UseGuards(SocketAuthGuard)
-  async handleGetMessages(
-    socket: Socket,
-    payload: { conversationId: string; limit?: number },
-  ) {
-    try {
-      const userId = socket.data?.userId;
-      const { conversationId, limit = 100 } = payload;
 
-      if (!conversationId) {
-        socket.emit('messagesError', { error: 'conversationId is required' });
-        return { status: 'error', message: 'conversationId is required' };
+  // listen event token-update for testing.
+
+
+       /**
+   * Emit token update to user's room
+   * @param userId - Room identifier (conversation ID)
+   * @param data - Token and plan data to emit
+   */
+  emitTokenUpdate(
+         userId: string,
+    data: {
+      availableTokens: number;
+      dailyUsed: number;
+      monthlyUsed: number;
+      limits: {
+        dailyLimit?: number;
+        monthlyLimit?: number;
+        perRequestLimit?: number;
+      };
+      planDetails: {
+        name: string;
+        remainingChatMessages: number | null;
+        remainingQuestions: number | null;
+      };
+    },
+  ): void {
+    try {
+      if (!userId) {
+        this.logger.warn('Cannot emit token update: conversationId is missing');
+        return;
       }
 
-      const messages = await this.socketGatewayService.getConversationMessages(
-        conversationId,
-        limit,
-      );
-
-      socket.emit('messagesList', {
-        conversationId,
-        messages,
-        userId,
-      });
-
-      return { status: 'ok', count: messages.length };
-    } catch (err) {
-      this.logger.error('handleGetMessages error', err?.stack ?? err);
-      socket.emit('messagesError', { error: err?.message ?? String(err) });
-      return { status: 'error', message: 'Failed to get messages' };
+      this.logger.log(`Emitting token-update to room: ${userId}`);
+      this.server.to(userId).emit('token-update', data);
+    } catch (error) {
+      this.logger.error('Error emitting token update', error?.stack ?? error);
     }
   }
 
@@ -210,6 +229,49 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.error('handleCreateConversation error', err?.stack ?? err);
       socket.emit('conversationError', { error: err?.message ?? String(err) });
       return { status: 'error', message: 'Failed to create conversation' };
+    }
+  }
+
+  @SubscribeMessage('getMessages')
+  @UseGuards(SocketAuthGuard)
+  async handleGetMessages(
+    socket: Socket,
+    payload: {
+      conversationId: string;
+      limit?: number;
+      fromDate?: string;
+    },
+  ) {
+    try {
+      const userId = socket.data?.userId;
+      const { conversationId, limit = 50, fromDate } = payload;
+
+      if (!conversationId) {
+        socket.emit('messagesError', { error: 'Conversation ID is required' });
+        return { status: 'error', message: 'Conversation ID is required' };
+      }
+
+      const parsedFromDate = fromDate ? new Date(fromDate) : undefined;
+
+      const messages = await this.socketGatewayService.getConversationMessages(
+        userId,
+        conversationId,
+        limit,
+        parsedFromDate,
+      );
+
+      socket.emit('messagesList', {
+        conversationId,
+        messages,
+        userId,
+        count: messages.length,
+      });
+
+      return { status: 'ok', count: messages.length };
+    } catch (err) {
+      this.logger.error('handleGetMessages error', err?.stack ?? err);
+      socket.emit('messagesError', { error: err?.message ?? String(err) });
+      return { status: 'error', message: 'Failed to get messages' };
     }
   }
 

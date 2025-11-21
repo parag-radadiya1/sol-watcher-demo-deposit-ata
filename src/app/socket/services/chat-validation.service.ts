@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { LangChainService } from '@app/langchain/langchain.service';
 import { ASTROLOGY_VALIDATION_SYSTEM_PROMPT } from '../constants/chat-validation-prompt.constant';
 
@@ -6,7 +6,10 @@ import { ASTROLOGY_VALIDATION_SYSTEM_PROMPT } from '../constants/chat-validation
 export class ChatValidationService {
   private readonly logger = new Logger(ChatValidationService.name);
 
-  constructor(private readonly langChainService: LangChainService) {}
+  constructor(
+    @Inject(forwardRef(() => LangChainService))
+    private readonly langChainService: LangChainService
+  ) {}
 
   /**
    * Validate if user message is astrology-related using AI

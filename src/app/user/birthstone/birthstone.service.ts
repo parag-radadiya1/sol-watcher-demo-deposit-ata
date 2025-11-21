@@ -4,11 +4,11 @@ import { LangChainService } from '@app/langchain/langchain.service';
 import { IAuthGuardResponse, ICommonResponse } from '@utils/dto';
 import {
   CheckBirthstoneDto,
-  IBirthstoneResponse,
-  IncompleteBirthDetailsException,
-  BirthstoneServiceException,
-} from './dto';
-import { BirthstoneReadingModelService } from '../../../entities/birthstone-reading/birthstone-reading.service';
+} from './dto/birthstone.dto';
+import { IBirthstoneResponse, IBirthstoneMarkdownResponse, IBirthstoneOverviewResponse } from '@app/user/birthstone/dto';
+import { IncompleteBirthDetailsException, BirthstoneServiceException } from '@app/user/birthstone/dto';
+import { birthstoneResponse } from '@utils/constant';
+import { BirthstoneReadingModelService } from '@entities/birthstone-reading/birthstone-reading.service';
 import { QueueService } from '@app/queue/queue.service';
 import { JobModelService } from '@entities-job/job.service';
 import { JOB_TYPES } from '@app/queue/constants/queue.constants';
@@ -50,8 +50,8 @@ export class BirthstoneService {
       }
 
       // Prepare user birth details
-      const fullName = user.surname
-        ? `${user.firstName} ${user.lastName} ${user.surname}`.trim()
+      const fullName = user.  middleName
+        ? `${user.firstName} ${user.lastName} ${user.middleName}`.trim()
         : `${user.firstName} ${user.lastName}`.trim();
 
       const birthDateFormatted = new Date(user.birthDate).toLocaleString(
@@ -76,14 +76,14 @@ export class BirthstoneService {
           );
 
         if (cachedReading) {
-          // Convert to markdown format
+          // Convert to Markdown format
           const markdown = BirthstoneMarkdownFormatter.toMarkdown(
             cachedReading.reading,
           );
 
           return {
             statusCode: HttpStatus.OK,
-            message: 'Birthstone reading retrieved from cache',
+            message: birthstoneResponse.birthstoneReadingRetrievedFromCache,
             data: {
               reading: cachedReading.reading,
               markdown,
@@ -124,7 +124,7 @@ export class BirthstoneService {
         birthDate: user.birthDate,
         birthPlace: user.birthPlace,
         gender: user.gender,
-        forceRegenerate: value.forceRegenerate,
+        forceRegenerate: value?.forceRegenerate,
       });
 
       // Store the job ID in the user model
@@ -140,8 +140,7 @@ export class BirthstoneService {
       // Return job status response
       return {
         statusCode: HttpStatus.ACCEPTED,
-        message:
-          'Birthstone reading job queued successfully. Use the jobId to check status.',
+        message: birthstoneResponse.birthstoneReadingJobQueuedSuccessfully,
         data: {
           jobId: job.id,
           status: 'waiting',
@@ -149,7 +148,7 @@ export class BirthstoneService {
             'Your birthstone reading is being generated. Please check the job status using the provided jobId.',
           userDetails: {
             fullName,
-            birthDate: birthDateFormatted,
+            birthDate: user.birthDate.toISOString(),
             birthPlace: user.birthPlace,
           },
         },
@@ -167,18 +166,18 @@ export class BirthstoneService {
   }
 
   /**
-   * @description Get birthstone reading in markdown format
+   * @description Get birthstone reading in Markdown format
    * Returns birthstone reading formatted as markdown (similar to birthstone_overview.md)
    * @param {IAuthGuardResponse} req - The authenticated request with user info
    * @param {CheckBirthstoneDto} value - Optional force regenerate flag
-   * @returns {Promise<ICommonResponse<any>>} Birthstone reading as markdown string
+   * @returns {Promise<ICommonResponse<IBirthstoneMarkdownResponse>>} Birthstone reading as markdown string
    * @throws {IncompleteBirthDetailsException} If user birth details are incomplete
-   * @throws {BirthstoneServiceException} If service fails
+   * @throws {BirthstoneServiceException} If AI service fails
    */
   async getMyBirthstoneMarkdown(
     req: IAuthGuardResponse,
     value: CheckBirthstoneDto,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IBirthstoneMarkdownResponse>> {
     try {
       // Get user details from database
       const user = await this.userModelService.getUserById(req.userId);
@@ -193,9 +192,9 @@ export class BirthstoneService {
       }
 
       // Prepare user birth details
-      const fullName = user.surname
-        ? `${user.firstName} ${user.lastName} ${user.surname}`.trim()
-        : `${user.firstName} ${user.lastName}`.trim();
+      const fullName = user.lastName
+        ? `${user.firstName} ${user.middleName} ${user.lastName}`.trim()
+        : `${user.firstName} ${user.middleName}`.trim();
 
       // Check if we have a cached reading (unless force regenerate is requested)
       if (!value?.forceRegenerate) {
@@ -207,20 +206,19 @@ export class BirthstoneService {
           );
 
         if (cachedReading && cachedReading.reading) {
-          // Convert to markdown format
+          // Convert to Markdown format
           const markdown = BirthstoneMarkdownFormatter.toMarkdown(
             cachedReading.reading,
           );
 
           return {
             statusCode: HttpStatus.OK,
-            message:
-              'Birthstone reading in markdown format retrieved successfully',
+            message: birthstoneResponse.birthstoneReadingInMarkdownFormatRetrievedSuccessfully,
             data: {
               markdown,
               userDetails: {
                 fullName,
-                birthDate: user.birthDate,
+                birthDate: user.birthDate.toISOString(),
                 birthPlace: user.birthPlace,
               },
               cached: true,
@@ -230,9 +228,60 @@ export class BirthstoneService {
         }
       }
 
-      throw new BirthstoneServiceException(
-        'No birthstone reading found. Please generate a reading first by calling /get-my-birthstone endpoint.',
+      // Check for existing jobs for this user
+      const existingJob = await this.jobModelService.getLatestJobByType(
+        req.userId,
+        JOB_TYPES.BIRTHSTONE_READING,
       );
+
+      // If there's an active or waiting job, cancel it and queue a new one
+      if (existingJob && ['waiting', 'active'].includes(existingJob.status)) {
+        // Cancel the existing job
+        await this.queueService.cancelJob(
+          existingJob.jobId,
+          'Cancelled - user requested new reading',
+        );
+        console.log(
+          `Cancelled existing job ${existingJob.jobId} for user ${req.userId}`,
+        );
+      }
+
+      // Queue the birthstone job instead of generating synchronously
+      const job = await this.queueService.addBirthstoneJob({
+        userId: req.userId,
+        fullName,
+        birthDate: user.birthDate,
+        birthPlace: user.birthPlace,
+        gender: user.gender,
+        forceRegenerate: value?.forceRegenerate,
+      });
+
+      // Store the job ID in the user model
+      await this.userModelService.updateLastBirthstoneJobId(
+        req.userId,
+        job.id as string,
+      );
+
+      console.log(
+        `Birthstone job queued for user: ${req.userId}, jobId: ${job.id}`,
+      );
+
+      // Return job status response
+      return {
+        statusCode: HttpStatus.ACCEPTED,
+        message: birthstoneResponse.birthstoneReadingJobQueuedSuccessfully,
+        data: {
+          jobId: job.id,
+          status: 'waiting',
+          message:
+            'Your birthstone reading is being generated. Please check the job status using the provided jobId.',
+          userDetails: {
+            fullName,
+            birthDate: user.birthDate.toISOString(),
+            birthPlace: user.birthPlace,
+          },
+        },
+      };
     } catch (error) {
       console.error('Birthstone markdown service error:', error);
       if (
@@ -252,7 +301,7 @@ export class BirthstoneService {
    */
   async getBirthstoneOverview(
     req: IAuthGuardResponse,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IBirthstoneOverviewResponse>> {
     try {
       // Get user details
       const user = await this.userModelService.getUserById(req.userId);
@@ -272,7 +321,7 @@ export class BirthstoneService {
       if (cachedReading && cachedReading.reading) {
         return {
           statusCode: HttpStatus.OK,
-          message: 'Birthstone overview retrieved successfully',
+          message: birthstoneResponse.birthstoneOverviewRetrievedSuccessfully,
           data: {
             overview: cachedReading.reading.overview,
             birthstoneCategories: cachedReading.reading.birthstoneCategories,
@@ -291,7 +340,7 @@ export class BirthstoneService {
 
       return {
         statusCode: HttpStatus.OK,
-        message: 'No birthstone reading found. Generate a full reading first.',
+        message: birthstoneResponse.noBirthstoneReadingFoundGenerateFirst,
         data: {
           birthMonth,
           hasReading: false,
@@ -303,34 +352,6 @@ export class BirthstoneService {
       if (error instanceof IncompleteBirthDetailsException) {
         throw error;
       }
-      throw new BirthstoneServiceException(error.message);
-    }
-  }
-
-  /**
-   * @description Get job status
-   * @param {string} jobId - Job ID to check
-   * @returns {Promise<ICommonResponse<any>>} Job status
-   */
-  async getJobStatus(jobId: string): Promise<ICommonResponse<any>> {
-    try {
-      const jobStatus = await this.queueService.getJobStatus(jobId);
-
-      if (!jobStatus) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'Job not found',
-          data: null,
-        };
-      }
-
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'Job status retrieved successfully',
-        data: jobStatus,
-      };
-    } catch (error) {
-      console.error('Get job status error:', error);
       throw new BirthstoneServiceException(error.message);
     }
   }

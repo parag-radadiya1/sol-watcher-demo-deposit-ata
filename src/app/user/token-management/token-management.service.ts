@@ -233,6 +233,31 @@ export class TokenManagementService {
   }
 
   /**
+   * Get user's current token balance
+   */
+  async getUserTokenBalance(userId: string): Promise<{
+    currentBalance: number;
+    dailyUsed: number;
+    monthlyUsed: number;
+    limits: ITokenLimitConfig;
+  }> {
+    const [dailyUsed, monthlyUsed, currentBalance] = await Promise.all([
+      this.langChainTokenUsageService.getDailyTokenUsage(userId),
+      this.langChainTokenUsageService.getMonthlyTokenUsage(userId),
+      this.tokenTransactionService.getCurrentBalance(userId),
+    ]);
+
+    const limits = await this.getLimitsForUser(userId);
+
+    return {
+      currentBalance,
+      dailyUsed,
+      monthlyUsed,
+      limits,
+    };
+  }
+
+  /**
    * Refund tokens for failed requests
    */
   async refundFailedRequest(

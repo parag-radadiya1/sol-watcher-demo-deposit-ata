@@ -4,10 +4,11 @@ import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validat
 import { Token } from '../../../../entities/token/token.entities';
 import { ITokenCommonFields } from '@utils/dto';
 import { Otp } from '@entities-otp/otp.entities';
+import { commonResponse } from '@utils/constant';
 
 
 export class UserCreateDto extends IntersectionType(
-  PickType(User, ['firstName', 'lastName', 'surname', 'birthDate', 'birthPlace', 'name', 'gender', 'mobileNumber', 'countryCode', 'email', 'password']),
+  PickType(User, ['firstName', 'middleName', 'lastName', 'birthDate', 'birthPlace', 'name', 'gender', 'mobileNumber', 'countryCode', 'email', 'password']),
 ) {}
 
 
@@ -73,7 +74,7 @@ export class SocialLoginDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsEmail()
+  @IsEmail({}, { message: commonResponse.invalidEmailAddress })
   email?: string;
 
   @ApiProperty({ required: false })

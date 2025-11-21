@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { SchemaTypes } from 'mongoose';
 import { IsValidCountryCode, IsValidMobileNumber } from '@utils/common.validation';
-import { validationResponse } from '@utils/constant';
+import { commonResponse, validationResponse } from '@utils/constant';
 import { REGEX } from '@utils/constants';
 import { Transform } from 'class-transformer';
 
@@ -27,19 +27,25 @@ export class User extends MongoSchema {
   @Prop({ type: String, required: true })
   @IsString()
   @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
+  @MinLength(2)
+  @MaxLength(50)
   firstName: string;
 
   @ApiProperty({ example: 'Doe' })
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false })
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  @IsOptional()
+  middleName?: string;
 
   @ApiProperty({ example: 'Smith', required: false })
   @Prop({ type: String, required: false })
   @IsString()
-  @IsOptional()
-  surname?: string;
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
+  @MinLength(2)
+  @MaxLength(50)
+  lastName?: string;
 
   @ApiProperty({ example: '1990-01-15T10:30:00.000Z' })
   @Prop({ type: Date, required: true })
@@ -48,6 +54,7 @@ export class User extends MongoSchema {
 
   @ApiProperty({ example: 'New York, USA' })
   @Prop({ type: String, required: true })
+  @Transform(({ value }) => value?.trim())
   @IsString()
   @IsNotEmpty()
   birthPlace: string;
@@ -67,7 +74,7 @@ export class User extends MongoSchema {
   @Prop({ type: String, unique: true, required: true })
   @Transform(({ value }) => value?.trim().toLowerCase())
   @IsNotEmpty()
-  @IsEmail()
+  @IsEmail({}, { message: commonResponse.invalidEmailAddress })
   @IsString()
   @ApiProperty({ example: 'a@gmail.com' })
   email: string;

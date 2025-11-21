@@ -46,8 +46,37 @@ export class MessageModelService {
     return msg.save();
   }
 
-  getMessagesByConversation(conversationId: string, limit = 100) {
-    return this.messageModel.find({ conversationId }).sort({ createdAt: 1 }).limit(limit);
+  /**
+   * Retrieves messages for a specific conversation.
+   * If fromDate is provided, fetches the most recent messages created before that date.
+   * Messages are returned in ascending order by creation date.
+   *
+   * @param conversationId - The unique identifier of the conversation
+   * @param limit - Maximum number of messages to retrieve (default: 100)
+   * @param fromDate - Optional date filter; if provided, only messages created before this date are returned
+   * @returns Promise resolving to an array of Message documents
+   *
+   * @example
+   * // Get the latest 50 messages for a conversation
+   * const messages = await messageService.getMessagesByConversation('conv123', 50);
+   *
+   * @example
+   * // Get up to 20 messages created before a specific date
+   * const beforeDate = new Date('2023-12-01');
+   * const oldMessages = await messageService.getMessagesByConversation('conv123', 20, beforeDate);
+   */
+  getMessagesByConversation(conversationId: string, limit = 100, fromDate?: Date) {
+    const query: any = { conversationId };
+    if (fromDate) {
+      query.createdAt = { $lt: fromDate };
+    }
+    const sortOrder = fromDate ? -1 : 1; // descending if fromDate to get latest first, then reverse
+    return this.messageModel.find(query).sort({ createdAt: sortOrder }).limit(limit).then(docs => {
+      if (fromDate) {
+        return docs.reverse(); // to ascending order
+      }
+      return docs;
+    });
   }
 
   getPendingOrStreamingMessages() {
@@ -59,4 +88,3 @@ export class MessageModelService {
     return this.messageModel.findByIdAndUpdate(messageId, { $inc: { tokenCount: count } }, { new: true });
   }
 }
-

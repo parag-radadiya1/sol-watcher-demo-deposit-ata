@@ -1,25 +1,21 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
+import { CommonException } from '@utils/exception';
+import { astrologyResponse } from '@utils/constant';
 
-export class IncompleteBirthDetailsException extends HttpException {
+export class IncompleteBirthDetailsException extends CommonException {
   constructor() {
-    super(
-      {
-        success: false,
-        message: 'Incomplete birth details. Please update your profile with birth date, birth place, and full name.',
-      },
-      HttpStatus.BAD_REQUEST,
-    );
+    super(astrologyResponse.incompleteBirthDetails, HttpStatus.BAD_REQUEST);
   }
 }
 
-export class AstrologyServiceException extends HttpException {
-  constructor(message: string = 'Failed to generate astrology reading') {
-    super(
-      {
-        success: false,
-        message,
-      },
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
+export class AstrologyServiceException extends CommonException {
+  constructor(message: string = astrologyResponse.astrologyServiceFailed) {
+    super(message, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+}
+
+export class JobNotFoundException extends CommonException {
+  constructor() {
+    super(astrologyResponse.jobNotFound, HttpStatus.NOT_FOUND);
   }
 }

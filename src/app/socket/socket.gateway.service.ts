@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Socket } from 'socket.io';
 import { LangChainService } from '../langchain/langchain.service';
 import { MessageModelService } from '../../entities/message/message.service';
@@ -10,6 +10,9 @@ import { CHAT_SYSTEM_PROMPT } from './constants/chat-validation-prompt.constant'
 import { ChatValidationService } from './services/chat-validation.service';
 import { UserModelService } from '@entities-user/user.service';
 import { TokenUsageType } from '@entities/langchain-token-usage/langchain-token-usage.entities';
+import { TokenManagementService } from '@app/user/token-management/token-management.service';
+import { ChatLimitService } from '@entities/plan/chat-limit.service';
+import { PlanService } from '@entities/plan/plan.service';
 
 
 @Injectable()
@@ -17,12 +20,15 @@ export class SocketGatewayService {
   private readonly logger = new Logger(SocketGatewayService.name);
 
   constructor(
+    @Inject(forwardRef(() => LangChainService))
     private readonly langChainService: LangChainService,
     private readonly userModelService: UserModelService,
     private readonly messageModelService: MessageModelService,
     private readonly messageChunkModelService: MessageChunkModelService,
     private readonly conversationModelService: ConversationModelService,
     private readonly chatValidationService: ChatValidationService,
+    private readonly tokenManagementService: TokenManagementService,
+    private readonly planService: PlanService,
   ) {}
 
   /**
@@ -234,8 +240,8 @@ export class SocketGatewayService {
     const user = await this.userModelService.getUserById(userId);
 
     // Prepare user birth details
-    const fullName = user.surname
-      ? `${user.firstName} ${user.lastName} ${user.surname}`.trim()
+    const fullName = user.middleName
+      ? `${user.firstName} ${user.lastName} ${user.middleName}`.trim()
       : `${user.firstName} ${user.lastName}`.trim();
 
     const birthDateFormatted = new Date(user.birthDate).toLocaleString('en-US', {
@@ -318,11 +324,21 @@ Use these details to provide personalized insights when relevant.`;
     return this.conversationModelService.getConversationsByUser(userId, limit);
   }
 
-  /**
-   * Get all messages for a conversation
-   */
-  async getConversationMessages(conversationId: string, limit = 100) {
-    return this.messageModelService.getMessagesByConversation(conversationId, limit);
+  async getUserPlanData(userId: string) {
+    const user = await this.userModelService.getUserById(userId);
+    const userPlanId = user?.planId;
+    const tokenBalance = await this.tokenManagementService.getUserTokenBalance(userId);
+    const plan = userPlanId ? await this.planService.getPlanById(userPlanId) : null;
+    return {
+      availableTokens: tokenBalance.currentBalance,
+      dailyUsed: tokenBalance.dailyUsed,
+      monthlyUsed: tokenBalance.monthlyUsed,
+      limits: tokenBalance.limits,
+      planDetails: {
+        ...plan,
+        name: plan?.name,
+      },
+    };
   }
 
   /**
@@ -330,6 +346,49 @@ Use these details to provide personalized insights when relevant.`;
    */
   async createConversation(userId: string, title?: string) {
     return this.conversationModelService.createConversation(userId, title);
+  }
+
+  /**
+   * Get messages for a specific conversation
+   */
+  async getConversationMessages(
+    userId: string,
+    conversationId: string,
+    limit: number = 50,
+    fromDate?: Date,
+  ) {
+    try {
+
+      console.log('=== conversationId ====', conversationId);
+      
+      // Verify user has access to this conversation
+      const conversation = await this.conversationModelService.getConversationById(conversationId);
+
+      console.log('=== conversation ====', conversation);
+      if (!conversation || conversation.userId.toString() !== userId.toString()) {
+        throw new Error('Conversation not found or access denied');
+      }
+
+      const messages = await this.messageModelService.getMessagesByConversation(
+        conversationId,
+        limit,
+        fromDate,
+      );
+
+      return messages.map(msg => ({
+        id: msg._id,
+        role: msg.role,
+        content: msg.content,
+        status: msg.status,
+        createdAt: msg.createdAt,
+        tokenCount: msg.tokenCount,
+        isStreaming: msg.isStreaming,
+        streamCompleted: msg.streamCompleted,
+      }));
+    } catch (error) {
+      this.logger.error('Error getting conversation messages', error);
+      throw error;
+    }
   }
 
 }

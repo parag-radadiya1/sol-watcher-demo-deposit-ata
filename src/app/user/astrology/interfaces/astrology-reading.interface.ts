@@ -174,12 +174,16 @@ export interface IPlanetPlacement {
   sign: string;
   house: number;
   degree: string;
+  motion: string;
+  degAbsolute: string;
   interpretation: string;
 }
 
 export interface IRisingPlacement {
   sign: string;
   degree: string;
+  motion: string;
+  degAbsolute: string;
   interpretation: string;
 }
 

@@ -7,9 +7,9 @@ import { BirthstoneProcessor } from './processors/birthstone.processor';
 import { QUEUE_NAMES } from './constants/queue.constants';
 import { LangChainModule } from '../langchain/langchain.module';
 import { UserModelsModule } from '@entities-user/user.model.module';
-import { AstrologyReadingModelModule } from '../user/astrology/entities/astrology-reading.model.module';
-import { BirthstoneReadingModelModule } from '../../entities/birthstone-reading/birthstone-reading.model.module';
+import { BirthstoneReadingModelModule } from '@entities/birthstone-reading/birthstone-reading.model.module';
 import { JobModelModule } from '@entities-job/job.model.module';
+import { AstrologyReadingModelModule } from '@entities/astrology-reading/astrology-reading.model.module';
 
 @Module({
   imports: [

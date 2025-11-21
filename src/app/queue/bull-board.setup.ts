@@ -20,8 +20,10 @@ export async function setupBullBoard(app: NestFastifyApplication, queueService: 
     // Collect queues to monitor
     const queues: any[] = [];
     const astrologyQueue: Queue = queueService.getAstrologyQueue();
+    const birthstoneQueue: Queue = queueService.getBirthstoneQueue()
     if (astrologyQueue) {
       queues.push(new BullMQAdapter(astrologyQueue));
+      queues.push(new BullMQAdapter(birthstoneQueue));
     }
 
     createBullBoard({ queues, serverAdapter });

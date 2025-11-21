@@ -16,10 +16,10 @@ import { commonResponse } from '@utils/constant';
 import { AuthGuard } from '@guard/auth.guard';
 import { BirthstoneService } from './birthstone.service';
 import { 
-  CheckBirthstoneDto, 
-  BirthstoneSuccessResponse, 
-  IBirthstoneResponse 
-} from './dto';
+  CheckBirthstoneDto
+} from './dto/birthstone.dto';
+import { BirthstoneSuccessResponse, BirthstoneReadingSuccessResponse, BirthstoneOverviewSuccessResponse } from './dto/birthstone.response.dto';
+import { IBirthstoneResponse, IBirthstoneMarkdownResponse, IBirthstoneOverviewResponse } from './dto/birthstone.interface';
 
 @Controller('user/birthstone')
 @ApiTags('User-Birthstone')
@@ -40,7 +40,7 @@ export class BirthstoneController {
   @ApiBearerAuth()
   @ApiOkResponse({
     description: 'Birthstone reading job queued successfully',
-    type: BirthstoneSuccessResponse,
+    type: BirthstoneReadingSuccessResponse,
   })
   getMyBirthstone(
     @Req() req: IAuthGuardResponse,
@@ -55,11 +55,12 @@ export class BirthstoneController {
   @ApiBearerAuth()
   @ApiOkResponse({
     description: 'Birthstone reading in markdown format retrieved successfully',
+    type: BirthstoneSuccessResponse,
   })
   async getMyBirthstoneMarkdown(
     @Req() req: IAuthGuardResponse,
     @Body() value: CheckBirthstoneDto,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IBirthstoneMarkdownResponse>> {
     return this.birthstoneService.getMyBirthstoneMarkdown(req, value);
   }
 
@@ -69,23 +70,11 @@ export class BirthstoneController {
   @ApiBearerAuth()
   @ApiOkResponse({
     description: 'Birthstone overview retrieved successfully',
+    type: BirthstoneOverviewSuccessResponse,
   })
   getBirthstoneOverview(
     @Req() req: IAuthGuardResponse,
-  ): Promise<ICommonResponse<any>> {
+  ): Promise<ICommonResponse<IBirthstoneOverviewResponse>> {
     return this.birthstoneService.getBirthstoneOverview(req);
-  }
-
-  @Get('job-status/:jobId')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
-  @ApiBearerAuth()
-  @ApiOkResponse({
-    description: 'Job status retrieved successfully',
-  })
-  getJobStatus(
-    @Param('jobId') jobId: string,
-  ): Promise<ICommonResponse<any>> {
-    return this.birthstoneService.getJobStatus(jobId);
   }
 }

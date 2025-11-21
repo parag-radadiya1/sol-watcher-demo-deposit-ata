@@ -1,28 +1,15 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
+import { CommonException } from '@utils/exception';
+import { birthstoneResponse } from '@utils/constant';
 
-export class IncompleteBirthDetailsException extends HttpException {
+export class IncompleteBirthDetailsException extends CommonException {
   constructor() {
-    super(
-      {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Incomplete birth details. Please update your profile with birth date, birth place, and name.',
-        error: 'INCOMPLETE_BIRTH_DETAILS',
-      },
-      HttpStatus.BAD_REQUEST,
-    );
+    super(birthstoneResponse.incompleteBirthDetails, HttpStatus.BAD_REQUEST);
   }
 }
 
-export class BirthstoneServiceException extends HttpException {
-  constructor(message: string = 'Failed to generate birthstone reading') {
-    super(
-      {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message,
-        error: 'BIRTHSTONE_SERVICE_ERROR',
-      },
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
+export class BirthstoneServiceException extends CommonException {
+  constructor(message: string = birthstoneResponse.birthstoneServiceFailed) {
+    super(message, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }
-

@@ -4,21 +4,20 @@ import { LangChainService } from '@app/langchain/langchain.service';
 import { IAuthGuardResponse, ICommonResponse } from '@utils/dto';
 import {
   CheckAstrologyDto,
-  IAstrologyResponse,
-  IncompleteBirthDetailsException,
-  AstrologyServiceException,
-} from './dto';
-import { AstrologyReadingModelService } from './entities/astrology-reading.service';
+} from './dto/astrology.dto';
+import { IAstrologyResponse } from '@app/user/astrology/dto';
+import { IncompleteBirthDetailsException, AstrologyServiceException, JobNotFoundException } from './dto/astrology.error';
 import { QueueService } from '@app/queue/queue.service';
 import { JobModelService } from '@entities-job/job.service';
 import { JOB_TYPES } from '@app/queue/constants/queue.constants';
+import { AstrologyReadingModelService } from '@entities/astrology-reading/astrology-reading.service';
+import { astrologyResponse } from '@utils/constant';
 
 @Injectable()
 export class AstrologyService {
   constructor(
     private readonly userModelService: UserModelService,
     private readonly langChainService: LangChainService,
-    // todo : update this service from model to service
     private readonly astrologyReadingModelService: AstrologyReadingModelService,
     private readonly queueService: QueueService,
     private readonly jobModelService: JobModelService,
@@ -50,8 +49,8 @@ export class AstrologyService {
       }
 
       // Prepare user birth details
-      const fullName = user.surname
-        ? `${user.firstName} ${user.lastName} ${user.surname}`.trim()
+      const fullName = user.middleName
+        ? `${user.firstName} ${user.lastName} ${user.middleName}`.trim()
         : `${user.firstName} ${user.lastName}`.trim();
 
       const birthDateFormatted = new Date(user.birthDate).toLocaleString(
@@ -78,7 +77,7 @@ export class AstrologyService {
         if (cachedReading) {
           return {
             statusCode: HttpStatus.OK,
-            message: 'Astrology reading retrieved from cache',
+            message: astrologyResponse.astrologyReadingRetrievedFromCache,
             data: {
               reading: cachedReading.reading,
               userDetails: {
@@ -135,8 +134,7 @@ export class AstrologyService {
       // Return job status response
       return {
         statusCode: HttpStatus.ACCEPTED,
-        message:
-          'Astrology reading job queued successfully. Use the jobId to check status.',
+        message: astrologyResponse.astrologyReadingJobQueuedSuccessfully,
         data: {
           jobId: job.id,
           status: 'waiting',
@@ -160,64 +158,6 @@ export class AstrologyService {
       throw new AstrologyServiceException(
         error?.message || 'Failed to generate astrology reading',
       );
-    }
-  }
-
-  /**
-   * @description Get astrology job status by job ID
-   */
-  async getJobStatus(jobId: string): Promise<ICommonResponse<any>> {
-    try {
-      const jobStatus = await this.queueService.getJobStatus(jobId);
-
-      if (!jobStatus) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'Job not found',
-          data: null,
-        };
-      }
-
-      console.log('=== jobStatus ====', jobStatus);
-      // If job is completed, return the reading
-      if (jobStatus.state === 'completed' && jobStatus.returnvalue) {
-        const result = jobStatus.returnvalue;
-
-        if (result.cached) {
-          return {
-            statusCode: HttpStatus.OK,
-            message: 'Astrology reading retrieved from cache',
-            data: {
-              reading: result.reading.reading,
-              userDetails: {
-                fullName: result.reading.fullName,
-                birthDate: result.reading.birthDate,
-                birthPlace: result.reading.birthPlace,
-              },
-              cached: true,
-              generatedAt: result.reading.generatedAt,
-            },
-          };
-        }
-
-        return {
-          statusCode: HttpStatus.OK,
-          message: 'Astrology reading generated successfully',
-          data: {
-            reading: result.reading.reading,
-            userDetails: {
-              fullName: result.reading.fullName,
-              birthDate: result.reading.birthDate,
-              birthPlace: result.reading.birthPlace,
-            },
-            cached: false,
-            generatedAt: result.reading.generatedAt,
-          },
-        };
-      }
-    } catch (error) {
-      console.error('Error getting job status:', error);
-      throw new AstrologyServiceException('Failed to get job status');
     }
   }
 }

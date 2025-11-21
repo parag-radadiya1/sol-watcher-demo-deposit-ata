@@ -1,4 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
+import { IncompleteBirthDetailsException } from '@app/user/astrology/dto';
+import { UserNotFoundException } from '@app/user/daily-astrology/dto/daily-astrology.exceptions';
+import { InvalidDateFormatException } from '@app/user/daily-astrology/exceptions/daily-astrology.exceptions';
 
 /**
  * Validation utilities for daily astrology predictions
@@ -12,22 +15,20 @@ export class DailyAstrologyValidation {
     if (!dateRegex.test(dateString)) {
       return false;
     }
-    const date = new Date(dateString);
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
     return date instanceof Date && !isNaN(date.getTime());
   }
 
   /**
-   * Validate date is not in invalid formats
+   * Parse date string to Date object using UTC
    */
   static parseDateString(dateString: string): Date {
     if (!this.isValidDateFormat(dateString)) {
-      throw new BadRequestException(
-        `Invalid date format: "${dateString}". Use YYYY-MM-DD format.`,
-      );
+      throw new InvalidDateFormatException(dateString);
     }
-    const date = new Date(dateString);
-    date.setHours(0, 0, 0, 0);
-    return date;
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
   }
 
   /**
@@ -57,19 +58,19 @@ export class DailyAstrologyValidation {
    */
   static validateUserBirthDetails(user: any): void {
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new UserNotFoundException();
     }
 
     if (!user.birthDate) {
-      throw new BadRequestException('User birth date is required. Please update your profile.');
+      throw new IncompleteBirthDetailsException();
     }
 
     if (!user.birthPlace) {
-      throw new BadRequestException('User birth place is required. Please update your profile.');
+      throw new IncompleteBirthDetailsException();
     }
 
     if (!user.firstName || !user.lastName) {
-      throw new BadRequestException('User name is incomplete. Please update your profile.');
+      throw new IncompleteBirthDetailsException();
     }
   }
 
@@ -95,4 +96,3 @@ export class DailyAstrologyValidation {
     return `${this.getDayOfWeekName(date)}, ${this.formatDateForDisplay(date)}`;
   }
 }
-

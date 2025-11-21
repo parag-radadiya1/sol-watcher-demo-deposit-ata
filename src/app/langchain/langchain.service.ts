@@ -6,14 +6,14 @@ import {
   HumanMessage,
   SystemMessage,
   AIMessage,
-  ChatPromptTemplate,
   OpenAIEmbeddings
 } from './langchain-compat';
-import { TokenManagementService } from '../token-management/token-management.service';
+import { TokenManagementService } from '@app/user/token-management/token-management.service';
 import { TokenUsageType, LLMProvider } from '@entities/langchain-token-usage/langchain-token-usage.entities';
 import { ChatLimitService } from '@entities-plan/chat-limit.service';
 import { PlanService } from '@entities-plan/plan.service';
 import { UserModelService } from '@entities-user/user.service';
+import { SocketGateway } from '@app/socket/socket.gateway';
 
 interface ITokenTrackingResult {
   response: string;
@@ -38,6 +38,7 @@ export class LangChainService {
     private readonly chatLimitService: ChatLimitService,
     private readonly planService: PlanService,
     private readonly userModelService: UserModelService,
+    private readonly socketGateway: SocketGateway,
   ) {
     // Determine which provider to use
     const googleApiKey = this.configService.get<string>('GOOGLE_API_KEY');
@@ -262,6 +263,30 @@ export class LangChainService {
 
       console.log(`✅ Token transaction recorded - Input: ${inputTokens}, Output: ${outputTokens}, Total: ${inputTokens + outputTokens}`);
 
+      // 6. Emit token update via socket
+      if (userId) {
+        try {
+          const tokenBalance = await this.tokenManagementService.getUserTokenBalance(userId);
+          const plan = userPlanId ? await this.planService.getPlanById(userPlanId) : null;
+
+          this.socketGateway.emitTokenUpdate(userId, {
+            availableTokens: tokenBalance.currentBalance,
+            dailyUsed: tokenBalance.dailyUsed,
+            monthlyUsed: tokenBalance.monthlyUsed,
+            limits: tokenBalance.limits,
+            planDetails: {
+              name: plan?.name || planLimits.planName,
+              remainingChatMessages: planLimits.remainingChatMessages,
+              remainingQuestions: planLimits.remainingQuestions,
+            },
+          });
+
+          console.log(`✅ Token update emitted to room: ${conversationId}`);
+        } catch (error) {
+          console.error('Error emitting token update:', error);
+        }
+      }
+
       return {
         response: responseText,
         inputTokens,
@@ -315,7 +340,6 @@ export class LangChainService {
         new HumanMessage(userMessage),
       ];
 
-      console.log('=== messages ====', messages);
       const response = await (this.chatModel as any).invoke(messages);
       const responseText = response.content.toString();
       const outputTokens = this.estimateTokens(responseText);
@@ -339,6 +363,30 @@ export class LangChainService {
         },
         userPlanId,
       );
+
+      // 6. Emit token update via socket
+      if (conversationId) {
+        try {
+          const tokenBalance = await this.tokenManagementService.getUserTokenBalance(userId);
+          const plan = userPlanId ? await this.planService.getPlanById(userPlanId) : null;
+
+          this.socketGateway.emitTokenUpdate(userId, {
+            availableTokens: tokenBalance.currentBalance,
+            dailyUsed: tokenBalance.dailyUsed,
+            monthlyUsed: tokenBalance.monthlyUsed,
+            limits: tokenBalance.limits,
+            planDetails: {
+              name: plan?.name || planLimits.planName,
+              remainingChatMessages: planLimits.remainingChatMessages,
+              remainingQuestions: planLimits.remainingQuestions,
+            },
+          });
+
+          console.log(`✅ Token update emitted to room: ${conversationId}`);
+        } catch (error) {
+          console.error('Error emitting token update:', error);
+        }
+      }
 
       return {
         response: responseText,
@@ -462,6 +510,32 @@ export class LangChainService {
         },
         userPlanId,
       );
+
+      // 6. Emit token update via socket
+      if (conversationId) {
+        try {
+          const planLimits = await this.validatePlanLimits(userId, conversationId, false);
+          const tokenBalance = await this.tokenManagementService.getUserTokenBalance(userId);
+          const plan = userPlanId ? await this.planService.getPlanById(userPlanId) : null;
+
+          console.log('===  here emitTokenUpdate ====');
+          this.socketGateway.emitTokenUpdate(userId, {
+            availableTokens: tokenBalance.currentBalance,
+            dailyUsed: tokenBalance.dailyUsed,
+            monthlyUsed: tokenBalance.monthlyUsed,
+            limits: tokenBalance.limits,
+            planDetails: {
+              name: plan?.name || planLimits.planName,
+              remainingChatMessages: planLimits.remainingChatMessages,
+              remainingQuestions: planLimits.remainingQuestions,
+            },
+          });
+
+          console.log(`✅ Token update emitted to room: ${conversationId}`);
+        } catch (error) {
+          console.error('Error emitting token update:', error);
+        }
+      }
     } catch (error) {
       console.error('LangChain stream chat with plan validation error:', error);
       throw error;
@@ -908,5 +982,16 @@ Summary:`;
       return `Previous conversation covered ${messages.length} messages.`;
     }
   }
-}
 
+  /**
+   * Emit token update via socket
+   */
+  emitTokenUpdate(userId: string, planName: string, remainingChatMessages: number | null, remainingQuestions: number | null) {
+    try {
+      // This method is deprecated - use socketGateway.emitTokenUpdate directly
+      console.warn('emitTokenUpdate method is deprecated, use socketGateway.emitTokenUpdate directly');
+    } catch (error) {
+      console.error('Error emitting token update via socket:', error);
+    }
+  }
+}
