@@ -20,6 +20,8 @@ import {
   FailedToGeneratePredictionsException,
 } from './exceptions/daily-astrology.exceptions';
 import { DailyAstrologyValidation } from './utils/daily-astrology.validation';
+import { QueueService } from '@app/queue/queue.service';
+import { JobModelService } from '@entities-job/job.service';
 
 @Injectable()
 export class DailyAstrologyService {
@@ -27,6 +29,8 @@ export class DailyAstrologyService {
     private readonly dailyAstrologyModelService: DailyAstrologyPredictionModelService,
     private readonly userModelService: UserModelService,
     private readonly langChainService: LangChainService,
+    private readonly queueService: QueueService,
+    private readonly jobModelService: JobModelService,
   ) {}
 
   async getDailyPredictions(
@@ -126,97 +130,171 @@ export class DailyAstrologyService {
   }
 
   /**
-   * Get daily predictions in Markdown format
-   * Returns predictions formatted as markdown per day (similar to wednesday_prediction.md)
+   * Get daily predictions in Markdown format using job queue
+   * Returns job information immediately and processes predictions in background
+   * If all predictions exist in DB, returns markdown immediately without creating a job
    */
   async getDailyPredictionsMarkdown(
     req: IAuthGuardResponse,
     dto: GetDailyAstrologyPredictionDto,
   ): Promise<ICommonResponse<any>> {
     try {
+      // Validate dates first
       const { startDate, endDate, daysCount } = this.validateAndParseDates(dto);
-
+      // Verify user exists and has required data
       const user = await this.userModelService.getUserById(req.userId);
       if (!user) {
         throw new UserNotFoundException();
       }
-      console.log('=== user ====', user);
-      if (
-        !user.birthDate ||
-        !user.birthPlace ||
-        !user.firstName ||
-        !user.lastName
-      ) {
+      if (!user.birthDate || !user.birthPlace || !user.firstName || !user.lastName) {
         throw new FailedToGeneratePredictionsException();
       }
+      // STEP 1: Check for MOST RECENT completed job with matching dates
+      console.log(`[Step 1] Checking for existing jobs for user ${req.userId}`);
+      console.log(`[Step 1] Looking for jobs with dates: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+      // Get the most recent job of this type for the user
+      const latestJob = await this.jobModelService.getLatestJobByType(
+        req.userId,
+        'DAILY_PREDICTION_MARKDOWN',
+      );
+      console.log(`[Step 1] Latest DAILY_PREDICTION_MARKDOWN job:`, latestJob ? {
+        jobId: latestJob.jobId,
+        status: latestJob.status,
+        createdAt: latestJob.createdAt,
+        hasResult: !!latestJob.result,
+        jobDataStart: latestJob.jobData?.startDate,
+        jobDataEnd: latestJob.jobData?.endDate,
+      } : 'None found');
+      if (latestJob && latestJob.jobData) {
+        const jobData = latestJob.jobData as any;
+        const isSameRequest = 
+          jobData.startDate === startDate.toISOString().split('T')[0] &&
+          jobData.endDate === endDate.toISOString().split('T')[0];
+        console.log(`[Step 1] Job matches request dates: ${isSameRequest}`);
+        // If the latest job is for the same dates and is completed, return it
+        if (isSameRequest && latestJob.status === 'completed') {
+          if (latestJob.result) {
+            console.log(`[Step 1] ✅ Returning completed job ${latestJob.jobId} result`);
+            return {
+              statusCode: HttpStatus.OK,
+              message: 'Daily predictions markdown generation completed.',
+              data: {
+                ...latestJob.result,
+                jobId: latestJob.jobId,
+                source: 'job-completed',
+              },
+            };
+          } else {
+            console.log(`[Step 1] ⚠️ Completed job has no result, checking database instead`);
+          }
+        }
+        // If the latest job is in progress, return its status
+        if (isSameRequest && (latestJob.status === 'waiting' || latestJob.status === 'active')) {
+          console.log(`[Step 1] 🔄 Job is in progress, returning status`);
+          return {
+            statusCode: HttpStatus.ACCEPTED,
+            message: `Daily predictions markdown job is ${latestJob.status}. Current progress: ${latestJob.progress || 0}%`,
+            data: {
+              jobId: latestJob.jobId,
+              status: latestJob.status,
+              progress: latestJob.progress || 0,
+              dateRange: {
+                start: startDate.toISOString().split('T')[0],
+                end: endDate.toISOString().split('T')[0],
+              },
+              totalDays: daysCount,
+              estimatedTimeSeconds: daysCount * 2,
+              createdAt: latestJob.createdAt,
+              source: 'job-in-progress',
+            },
+          };
+        }
+      }
+      console.log(`[Step 1] No matching completed job found`);
+      // STEP 2: Check if all predictions already exist in the database
+      console.log(`[Step 2] No recent job found, checking database for predictions`);
+      console.log(`[Step 2] Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+      const existingPredictions = await this.dailyAstrologyModelService.findByUserAndDateRange(
+        req.userId,
+        startDate,
+        endDate,
+      );
+      console.log(`[Step 2] Found ${existingPredictions.length} existing predictions in database`);
+      console.log(`[Step 2] Existing prediction dates:`, existingPredictions.map(p => this.getDateKey(p.predictionDate)));
       const datesToProcess = this.generateDateRange(startDate, endDate);
-      const existingPredictions =
-        await this.dailyAstrologyModelService.findByUserAndDateRange(
-          req.userId,
-          startDate,
-          endDate,
-        );
+      console.log(`[Step 2] Total dates requested: ${datesToProcess.length}`);
+      console.log(`[Step 2] Requested dates:`, datesToProcess.map(d => this.getDateKey(d)));
       const existingPredictionMap = new Map<string, DailyAstrologyPrediction>(
         existingPredictions.map((p) => [this.getDateKey(p.predictionDate), p]),
       );
-      const datesToGenerate = dto.forceRegenerate
-        ? datesToProcess
-        : datesToProcess.filter(
-            (date) => !existingPredictionMap.has(this.getDateKey(date)),
-          );
-      let newPredictions: DailyAstrologyPrediction[] = [];
-      if (datesToGenerate.length > 0) {
-        console.log(
-          `Generating markdown predictions for ${datesToGenerate.length} days for user ${req.userId}`,
-        );
-        for (const date of datesToGenerate) {
-          const prediction = await this.generateDailyPrediction(
-            req.userId,
-            date,
-            user,
-          );
-          if (prediction) {
-            newPredictions.push(prediction);
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
-        }
-      }
-      const allPredictions = [
-        ...existingPredictions.filter((p) =>
-          datesToProcess.some((d) => this.isSameDay(d, p.predictionDate)),
-        ),
-        ...newPredictions,
-      ].sort(
-        (a, b) =>
-          new Date(a.predictionDate).getTime() -
-          new Date(b.predictionDate).getTime(),
+      // Check if we need to generate any predictions
+      const missingDates = datesToProcess.filter(
+        (date) => !existingPredictionMap.has(this.getDateKey(date)),
       );
-
-      // Convert to markdown format per day
-      const markdownPredictions = allPredictions.map((p) => ({
-        date: this.getDateKey(p.predictionDate),
-        dayOfWeek: p.dayOfWeek,
-        markdown: DailyPredictionMarkdownFormatter.toMarkdown(p, p.dayOfWeek),
-      }));
-
-      const response = {
-        predictions: markdownPredictions,
-        totalDays: allPredictions.length,
-        fromCacheCount: existingPredictions.length,
-        newGeneratedCount: newPredictions.length,
-        dateRange: {
-          start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0],
+      console.log('=== missingDates ====', missingDates);
+      if (missingDates.length > 0) {
+        console.log(`[Step 2] ❌ Missing ${missingDates.length} predictions for dates: ${missingDates.map(d => this.getDateKey(d)).join(', ')}`);
+      } else {
+        console.log(`[Step 2] ✅ All predictions found in database!`);
+      }
+      // If all predictions exist and not forcing regeneration, return markdown immediately
+      if (missingDates.length === 0 && !dto.forceRegenerate) {
+        console.log(`[Step 2] ✅ Returning all ${existingPredictions.length} predictions from database immediately`);
+        // Sort predictions by date
+        const sortedPredictions = existingPredictions.sort(
+          (a, b) => new Date(a.predictionDate).getTime() - new Date(b.predictionDate).getTime(),
+        );
+        // Convert to markdown format per day
+        const markdownPredictions = sortedPredictions.map((p) => ({
+          date: this.getDateKey(p.predictionDate),
+          dayOfWeek: p.dayOfWeek,
+          markdown: DailyPredictionMarkdownFormatter.toMarkdown(p, p.dayOfWeek),
+        }));
+        return {
+          statusCode: HttpStatus.OK,
+          message: dailyAstrologyResponse.markdownPredictionsRetrievedSuccessfully(daysCount),
+          data: {
+            predictions: markdownPredictions,
+            totalDays: sortedPredictions.length,
+            fromCacheCount: sortedPredictions.length,
+            newGeneratedCount: 0,
+            dateRange: {
+              start: startDate.toISOString().split('T')[0],
+              end: endDate.toISOString().split('T')[0],
+            },
+            source: 'database',
+          },
+        };
+      }
+      // STEP 3: Create job for background processing
+      console.log(`[Step 3] 🚀 Creating new job to generate ${missingDates.length} missing predictions`);
+      const job = await this.queueService.addDailyPredictionJob({
+        userId: req.userId,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        forceRegenerate: dto.forceRegenerate || false,
+        isMarkdown: true,
+      }, 10);
+      console.log(`[Step 3] Job created: ${job.id}`);
+      return {
+        statusCode: HttpStatus.ACCEPTED,
+        message: 'Daily predictions markdown generation job has been queued. Use the jobId to check status.',
+        data: {
+          jobId: job.id,
+          status: 'queued',
+          dateRange: {
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0],
+          },
+          totalDays: daysCount,
+          missingDays: missingDates.length,
+          existingDays: existingPredictions.length,
+          estimatedTimeSeconds: missingDates.length * 2,
+          source: 'job-new',
         },
       };
-
-      return {
-        statusCode: HttpStatus.OK,
-        message: dailyAstrologyResponse.markdownPredictionsRetrievedSuccessfully(daysCount),
-        data: response,
-      };
     } catch (error) {
-      console.error('Error getting markdown daily predictions:', error);
+      console.error('Error getting daily predictions markdown:', error);
       if (error instanceof BadRequestException) {
         throw error;
       }
@@ -336,6 +414,9 @@ export class DailyAstrologyService {
       prediction.isActive = true;
       // Check if same date record already exists, if so don't create
       const existingPrediction = await this.dailyAstrologyModelService.findByUserAndDate(userId, date);
+
+      console.log('=== date ====', date);
+      console.log('=== existingPrediction ====', existingPrediction);
       if (existingPrediction) {
         console.log(`Prediction already exists for user ${userId}, date ${date.toISOString().split('T')[0]}`);
         return existingPrediction;

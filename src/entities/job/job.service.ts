@@ -82,6 +82,14 @@ export class JobModelService {
       .exec();
   }
 
+  async getJobsByUserId(userId: string): Promise<(Job & Record<string, any>)[]> {
+    return this.jobModel
+      .find({ userId })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+  }
+
   async updateJobStatus(
     jobId: string,
     status: string,

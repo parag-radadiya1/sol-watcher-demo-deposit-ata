@@ -1,4 +1,11 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Socket } from 'socket.io';
 import { LangChainService } from '../langchain/langchain.service';
 import { MessageModelService } from '../../entities/message/message.service';
@@ -13,6 +20,7 @@ import { TokenUsageType } from '@entities/langchain-token-usage/langchain-token-
 import { TokenManagementService } from '@app/user/token-management/token-management.service';
 import { ChatLimitService } from '@entities/plan/chat-limit.service';
 import { PlanService } from '@entities/plan/plan.service';
+import { TokenTransactionService } from '@entities/token-transaction/token-transaction.service';
 
 
 @Injectable()
@@ -28,6 +36,8 @@ export class SocketGatewayService {
     private readonly conversationModelService: ConversationModelService,
     private readonly chatValidationService: ChatValidationService,
     private readonly tokenManagementService: TokenManagementService,
+    private readonly tokenTransactionService: TokenTransactionService,
+    private readonly chatLimitService: ChatLimitService,
     private readonly planService: PlanService,
   ) {}
 
@@ -51,7 +61,11 @@ export class SocketGatewayService {
     let messageDoc: any = null;
     let userMessageDoc: any = null;
     let sequence = 0;
-
+    const user = await this.userModelService.getUserById(userId);
+    if (!user || !user.planId) {
+      throw new BadRequestException('User or plan not found');
+    }
+    const plan = await this.planService.getPlanById(user.planId);
     try {
       // 🔥 NEW: Validate if message is astrology-related using AI
       this.logger.log(`Validating message content for astrology relevance...`);
@@ -70,7 +84,6 @@ export class SocketGatewayService {
           errorType: 'VALIDATION_ERROR',
           requiresUpgrade: false,
         });
-
         return;
       }
 
@@ -79,6 +92,49 @@ export class SocketGatewayService {
       // Validate or create conversationId
       if (conversationId && !Types.ObjectId.isValid(conversationId)) {
         this.logger.warn(`Invalid conversationId "${conversationId}", creating new conversation`);
+
+        const errorMessage = 'Invalid conversationId';
+        await this.messageModelService.createMessage({
+          conversationId: conversationId,
+          role: MessageRole.ERROR,
+          content: errorMessage,
+          status: MessageStatus.FAILED,
+          isStreaming: false,
+          streamCompleted: true,
+          completedAt: new Date(),
+          tokenCount: 0,
+          modelName: null,
+          errorMessage,
+        });
+
+        target.emit('aiMessageError', {
+          conversationId: conversationId ?? null,
+          userId,
+          error: errorMessage,
+          errorType: 'VALIDATION_ERROR',
+          requiresUpgrade: false,
+        });
+        return
+      }
+
+      // If no conversationId provided, create a new conversation
+      if (!conversationId) {
+        const getRemainingConversationCount = await this.conversationModelService.getTotalConversationCountByUserId(userId);
+        const remainingMessages = plan.chatMessageLimit - getRemainingConversationCount;
+
+        if (remainingMessages <= 0) {
+          const errorMessage =  'conversation limit reached';
+
+          target.emit('aiMessageError', {
+            conversationId: conversationId ?? null,
+            userId,
+            error: errorMessage,
+            errorType: 'VALIDATION_ERROR',
+            requiresUpgrade: false,
+          });
+          return
+        }
+
         const newConversation = await this.conversationModelService.createConversation(
           userId,
           `Chat ${new Date().toLocaleString()}`
@@ -87,14 +143,29 @@ export class SocketGatewayService {
         this.logger.log(`Created new conversation: ${conversationId}`);
       }
 
-      // If no conversationId provided, create a new conversation
-      if (!conversationId) {
-        const newConversation = await this.conversationModelService.createConversation(
+      const chatCheck = await this.chatLimitService.checkChatMessageLimit(userId, conversationId);
+      if (chatCheck.limitReached) {
+        const errorMessage = `Chat message limit reached for ${chatCheck.planName}. You have used ${chatCheck.questionLimit} AI responses in this conversation. Please upgrade your plan to continue.\`,`;
+        await this.messageModelService.createMessage({
+          conversationId: conversationId,
+          role: MessageRole.ERROR,
+          content: errorMessage,
+          status: MessageStatus.FAILED,
+          isStreaming: false,
+          streamCompleted: true,
+          completedAt: new Date(),
+          tokenCount: 0,
+          modelName: null,
+          errorMessage,
+        });
+        target.emit('aiMessageError', {
+          conversationId: conversationId ?? null,
           userId,
-          `Chat ${new Date().toLocaleString()}`
-        );
-        conversationId = (newConversation as any)._id.toString();
-        this.logger.log(`Created new conversation: ${conversationId}`);
+          error: `Chat message limit reached for ${chatCheck.planName}. You have used ${chatCheck.questionLimit} AI responses in this conversation. Please upgrade your plan to continue.\`,`,
+          errorType: 'VALIDATION_ERROR',
+          requiresUpgrade: false,
+        });
+        return
       }
 
       // Fetch conversation history (last 30 messages for potential summarization)
@@ -264,7 +335,9 @@ export class SocketGatewayService {
 - Birth Date & Time: ${birthDateFormatted}
 - Birth Place: ${user.birthPlace}
 
-Use these details to provide personalized insights when relevant.`;
+Use these details to provide personalized insights when relevant.
+Answer in 1-2 sentences only. Be concise and direct.
+`;
 
     // Add system prompt
     conversationHistory.push({
@@ -329,6 +402,9 @@ Use these details to provide personalized insights when relevant.`;
     const userPlanId = user?.planId;
     const tokenBalance = await this.tokenManagementService.getUserTokenBalance(userId);
     const plan = userPlanId ? await this.planService.getPlanById(userPlanId) : null;
+    const summary = await this.tokenTransactionService.getTransactionSummary(
+      userId,
+    );
     return {
       availableTokens: tokenBalance.currentBalance,
       dailyUsed: tokenBalance.dailyUsed,
@@ -336,6 +412,7 @@ Use these details to provide personalized insights when relevant.`;
       limits: tokenBalance.limits,
       planDetails: {
         ...plan,
+        ...summary,
         name: plan?.name,
       },
     };
@@ -358,13 +435,9 @@ Use these details to provide personalized insights when relevant.`;
     fromDate?: Date,
   ) {
     try {
-
-      console.log('=== conversationId ====', conversationId);
-      
       // Verify user has access to this conversation
       const conversation = await this.conversationModelService.getConversationById(conversationId);
 
-      console.log('=== conversation ====', conversation);
       if (!conversation || conversation.userId.toString() !== userId.toString()) {
         throw new Error('Conversation not found or access denied');
       }

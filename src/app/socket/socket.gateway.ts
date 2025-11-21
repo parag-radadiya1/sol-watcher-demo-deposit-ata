@@ -64,22 +64,16 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @UseGuards(SocketAuthGuard)
   async handleJoinRoom(socket: Socket, roomName: string) {
     try {
-
-      console.log('=== roomName ====', roomName);
-      
       if (!roomName || typeof roomName !== 'string') {
-        console.log('===  here ====', );
         return { status: 'error', message: 'Invalid room name' };
       }
 
       const userId = socket.data?.userId;
-      console.log('=== userId ====', userId);
       if (userId) {
         this.clients.set(userId, socket);
       }
 
       if (roomName.toString() !== userId.toString()) {
-        console.log('===   here  1 ====', );
         return { status: 'error', message: 'Invalid room name' };
       }
 

@@ -33,6 +33,11 @@ export class ConversationModelService {
       .limit(limit);
   }
 
+  // get total conversation count by user id
+  async getTotalConversationCountByUserId(userId: string): Promise<number> {
+    return this.conversationModel.countDocuments({ userId, isActive: true });
+  }
+
   getConversationById(id: string) {
     return this.conversationModel.findById(id);
   }

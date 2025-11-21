@@ -25,11 +25,18 @@ export class DailyAstrologyPredictionService {
     userId: string,
     predictionDate: Date,
   ): Promise<DailyAstrologyPrediction | null> {
+    // Create a copy to avoid mutating the original date
+    const startOfDay = new Date(predictionDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(predictionDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
     return this.dailyAstrologyPredictionModel.findOne({
       userId,
       predictionDate: {
-        $gte: new Date(predictionDate.setHours(0, 0, 0, 0)),
-        $lt: new Date(predictionDate.setHours(24, 0, 0, 0)),
+        $gte: startOfDay,
+        $lte: endOfDay,
       },
     });
   }
@@ -144,4 +151,3 @@ export class DailyAstrologyPredictionService {
     ]);
   }
 }
-

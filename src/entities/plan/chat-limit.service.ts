@@ -11,7 +11,7 @@ export interface ChatLimitCheckResult {
   remainingMessages: number | null; // null means unlimited
   limitReached: boolean;
   planName: string;
-  chatMessageLimit: number | null;
+  questionLimit: number | null;
 }
 
 @Injectable()
@@ -41,13 +41,13 @@ export class ChatLimitService {
     const plan = await this.planService.getPlanById(user.planId);
 
     // If plan has no chat message limit, allow unlimited
-    if (!plan.chatMessageLimit || plan.chatMessageLimit === null) {
+    if (!plan.questionLimit || plan.questionLimit === null) {
       return {
         canChat: true,
         remainingMessages: null,
         limitReached: false,
         planName: plan.name,
-        chatMessageLimit: null,
+        questionLimit: null,
       };
     }
 
@@ -57,7 +57,7 @@ export class ChatLimitService {
       role: MessageRole.ASSISTANT,
     });
 
-    const remainingMessages = plan.chatMessageLimit - aiMessageCount;
+    const remainingMessages = plan.questionLimit - aiMessageCount;
     const canChat = remainingMessages > 0;
 
     return {
@@ -65,7 +65,7 @@ export class ChatLimitService {
       remainingMessages: Math.max(0, remainingMessages),
       limitReached: !canChat,
       planName: plan.name,
-      chatMessageLimit: plan.chatMessageLimit,
+      questionLimit: plan.questionLimit,
     };
   }
 
@@ -80,7 +80,7 @@ export class ChatLimitService {
 
     if (result.limitReached) {
       throw new ForbiddenException(
-        `Chat message limit reached for ${result.planName}. You have used ${result.chatMessageLimit} AI responses. Please upgrade your plan to continue chatting.`,
+        `Chat message limit reached for ${result.planName}. You have used ${result.questionLimit} AI responses. Please upgrade your plan to continue chatting.`,
       );
     }
   }

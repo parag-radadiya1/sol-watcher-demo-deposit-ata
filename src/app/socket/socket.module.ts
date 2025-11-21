@@ -14,6 +14,7 @@ import { MessageChunkModelsModule } from '../../entities/message-chunk/message-c
 import { UserModelsModule } from '../../entities/user/user.model.module';
 import { TokenModelsModule } from '../../entities/token/token.model.module';
 import { TokenManagementModule } from '@app/user/token-management/token-management.module';
+import { PlanModelModule } from '@entities/plan/plan.model.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { TokenManagementModule } from '@app/user/token-management/token-manageme
     UserModelsModule,
     TokenModelsModule,
     TokenManagementModule,
+    PlanModelModule
   ],
   providers: [
     SocketGateway,

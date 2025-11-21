@@ -31,6 +31,14 @@ export interface IUserRegistrationJobData {
   name: string;
 }
 
+export interface IDailyPredictionJobData {
+  userId: string;
+  startDate: string;
+  endDate: string;
+  forceRegenerate?: boolean;
+  isMarkdown?: boolean;
+}
+
 @Injectable()
 export class QueueService {
   private readonly maxConcurrent: number;
@@ -40,6 +48,8 @@ export class QueueService {
     private readonly astrologyQueue: Queue,
     @InjectQueue(QUEUE_NAMES.BIRTHSTONE_QUEUE)
     private readonly birthstoneQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.DAILY_PREDICTION_QUEUE)
+    private readonly dailyPredictionQueue: Queue,
     private readonly configService: ConfigService,
     private readonly jobModelService: JobModelService,
   ) {
@@ -149,6 +159,39 @@ export class QueueService {
   }
 
   /**
+   * Add daily prediction generation job to queue and store in database
+   */
+  async addDailyPredictionJob(data: IDailyPredictionJobData, priority: number = 10) {
+    const jobType = data.isMarkdown ? 'markdown' : 'regular';
+    const jobId = `daily-prediction-${jobType}-${data.userId}-${Date.now()}`;
+
+    // Add job to BullMQ queue
+    const bullJob = await this.dailyPredictionQueue.add(
+      data.isMarkdown ? JOB_NAMES.GENERATE_DAILY_PREDICTIONS_MARKDOWN : JOB_NAMES.GENERATE_DAILY_PREDICTIONS,
+      data,
+      {
+        priority,
+        jobId,
+      },
+    );
+
+    // Store job in database
+    await this.jobModelService.createJob({
+      jobId: bullJob.id as string,
+      userId: new Types.ObjectId(data.userId),
+      jobType: data.isMarkdown ? JOB_TYPES.DAILY_PREDICTION_MARKDOWN : JOB_TYPES.DAILY_PREDICTION,
+      jobData: data,
+      queueName: QUEUE_NAMES.DAILY_PREDICTION_QUEUE,
+      status: 'waiting',
+      progress: 0,
+      priority,
+      attempts: 0,
+    });
+
+    return bullJob;
+  }
+
+  /**
    * Update job status in database when job state changes
    */
   async updateJobStatusInDB(jobId: string, status: string, updateData?: any) {
@@ -217,6 +260,35 @@ export class QueueService {
 
   getBirthstoneQueue() {
     return this.birthstoneQueue
+  }
+
+  getDailyPredictionQueue() {
+    return this.dailyPredictionQueue;
+  }
+
+  /**
+   * Get job status by job ID from any queue
+   */
+  async getJobStatusFromAnyQueue(jobId: string) {
+    // Try to find the job in any queue
+    const queues = [this.astrologyQueue, this.birthstoneQueue, this.dailyPredictionQueue];
+
+    for (const queue of queues) {
+      const job = await queue.getJob(jobId);
+      if (job) {
+        return {
+          id: job.id,
+          name: job.name,
+          data: job.data,
+          progress: job.progress,
+          state: await job.getState(),
+          returnvalue: job.returnvalue,
+          failedReason: job.failedReason,
+        };
+      }
+    }
+
+    return null;
   }
 
   /**

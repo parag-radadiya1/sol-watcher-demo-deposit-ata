@@ -158,7 +158,7 @@ export class LangChainService {
       console.log('=== chatCheck ====', chatCheck);
       if (chatCheck.limitReached) {
         throw new ForbiddenException(
-          `Chat message limit reached for ${chatCheck.planName}. You have used ${chatCheck.chatMessageLimit} AI responses in this conversation. Please upgrade your plan to continue.`,
+          `Chat message limit reached for ${chatCheck.planName}. You have used ${chatCheck.questionLimit} AI responses in this conversation. Please upgrade your plan to continue.`,
         );
       }
 
@@ -412,6 +412,7 @@ export class LangChainService {
     conversationId?: string,
     usageType: TokenUsageType = TokenUsageType.CHAT,
   ): AsyncIterable<string> {
+    console.log('=== messages ====', messages);
     const buildMessages = () => {
       return messages.map((msg) => {
         switch (msg.role) {

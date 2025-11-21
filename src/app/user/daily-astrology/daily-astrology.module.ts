@@ -7,6 +7,8 @@ import { LangChainModule } from '@app/langchain/langchain.module';
 import { GuardAuthService } from '@helper/guardAuth.helper.service';
 import { CommonModule } from '@utils/common.module';
 import { TokenModelsModule } from '@entities/token/token.model.module';
+import { QueueModule } from '@app/queue/queue.module';
+import { JobModelModule } from '@entities-job/job.model.module';
 
 @Module({
   imports: [
@@ -14,7 +16,9 @@ import { TokenModelsModule } from '@entities/token/token.model.module';
     UserModelsModule,
     LangChainModule,
     CommonModule,
-    TokenModelsModule
+    TokenModelsModule,
+    QueueModule,
+    JobModelModule,
   ],
   controllers: [DailyAstrologyController],
   providers: [DailyAstrologyService, GuardAuthService],

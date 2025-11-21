@@ -41,7 +41,7 @@ export class PlanService {
    * Get plan by ID
    */
   async getPlanById(planId: string): Promise<Plan> {
-    const plan = await this.planModel.findById(planId);
+    const plan = await this.planModel.findById(planId).lean();
     if (!plan) {
       throw new NotFoundException(`Plan with ID ${planId} not found`);
     }
