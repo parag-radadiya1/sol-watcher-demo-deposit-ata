@@ -6,6 +6,7 @@ import { BirthstoneModule } from './birthstone/birthstone.module';
 import { JobModule } from './job/job.module';
 import { MarriageMatchModule } from './marriage-match/marriage-match.module';
 import { DailyAstrologyModule } from './daily-astrology/daily-astrology.module';
+import { ChoghadiyaModule } from './choghadiya/choghadiya.module';
 import { CommonModule } from '@utils/common.module';
 import { MailModule } from '@mail/mail.module';
 
@@ -18,6 +19,7 @@ import { MailModule } from '@mail/mail.module';
     JobModule,
     MarriageMatchModule,
     DailyAstrologyModule,
+    ChoghadiyaModule,
   ],
   controllers: [],
   providers: [],

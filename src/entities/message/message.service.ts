@@ -70,7 +70,7 @@ export class MessageModelService {
     if (fromDate) {
       query.createdAt = { $lt: fromDate };
     }
-    const sortOrder = fromDate ? -1 : 1; // descending if fromDate to get latest first, then reverse
+    const sortOrder = -1 //fromDate ? -1 : 1; // descending if fromDate to get latest first, then reverse
     return this.messageModel.find(query).sort({ createdAt: sortOrder }).limit(limit).then(docs => {
       if (fromDate) {
         return docs.reverse(); // to ascending order
